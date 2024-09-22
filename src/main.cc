@@ -1,4 +1,4 @@
-#include "string.hh"
+#include "parser.hh"
 
 int main() {
     String s("你好，世界!");
@@ -8,5 +8,6 @@ int main() {
     std::cout << s.substr(0, 2) << "\n" << s.substr(3) << "\n";
     std::cout << s[1] << "\n\n\n\n\n\n";
 
+    testParsers();
     return 0;
 }

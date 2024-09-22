@@ -82,16 +82,13 @@ public:
 
     String(const char* cstr) : String(std::string(cstr)) {}
 
-    // 通过 char* 构造
     String(char* cstr) : String(std::string(cstr)) {}
 
-    // 通过 const char* 赋值
     String& operator=(const char* cstr) {
         *this = String(cstr);
         return *this;
     }
 
-    // 通过 char* 赋值
     String& operator=(char* cstr) {
         *this = String(cstr);
         return *this;
