@@ -2,11 +2,31 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <cstring>
 
 class Char {
 public:
     Char() : data(), size(0) {}
     Char(const std::string& utf8) : data(utf8), size(utf8.size()) {}
+    Char(char c) : data(1, c), size(1) {}
+    Char(const char* cstr) : data(cstr), size(cstr ? std::strlen(cstr) : 0) {}
+    
+    Char& operator=(const char* cstr) {
+        if (cstr) {
+            data = std::string(cstr);
+            size = data.size();
+        } else {
+            data.clear();
+            size = 0;
+        }
+        return *this;
+    }
+    
+    Char& operator=(char c) {
+        data = std::string(1, c);
+        size = 1;
+        return *this;
+    }
 
     bool isASCII() const {
         return size == 1 && data[0] < 0x80;
@@ -20,8 +40,16 @@ public:
         return data;
     }
 
+    bool operator==(const Char& other) const {
+        return data == other.data;
+    }
+
+    bool operator!=(const Char& other) const {
+        return data != other.data;
+    }
+
     friend std::ostream& operator<<(std::ostream& os, const Char& ch) {
-        return os << ch;
+        return os << ch.toUTF8();
     }
 
 private:
@@ -32,6 +60,7 @@ private:
 class String {
 public:
     String() : chars() {}
+    String(std::vector<Char> vec) : chars(vec) {}
     String(const std::string& utf8) {
         for (size_t i = 0; i < utf8.size();) {
             size_t charLen = 1;
@@ -50,6 +79,24 @@ public:
             i += charLen;
         }
     }
+
+    String(const char* cstr) : String(std::string(cstr)) {}
+
+    // 通过 char* 构造
+    String(char* cstr) : String(std::string(cstr)) {}
+
+    // 通过 const char* 赋值
+    String& operator=(const char* cstr) {
+        *this = String(cstr);
+        return *this;
+    }
+
+    // 通过 char* 赋值
+    String& operator=(char* cstr) {
+        *this = String(cstr);
+        return *this;
+    }
+
 
     class Iterator {
     public:
@@ -88,30 +135,29 @@ public:
         size_t index_;
     };
 
-    std::string front() const {
+    Char front() const {
         if (chars.empty()) {
-            return "";
+            return {};
         }
-        return chars.front().toUTF8();
+        return chars.front();
     }
 
-    std::string substr(size_t pos, size_t len = std::string::npos) const {
+    
+    String substr(size_t pos, size_t len = std::string::npos) const {
         if (pos > chars.size()) {
-            return "";
+            throw std::out_of_range("Starting position is beyond the end of the string");
         }
-        std::string result;
-        size_t currentPos = 0;
-        for (const Char& ch : chars) {
-            if (currentPos >= pos) {
-                if (len == std::string::npos || result.size() < len) {
-                    result += ch.toUTF8();
-                } else {
-                    break;
-                }
-            }
-            currentPos++;
+        size_t endPos = (len == std::string::npos) ? chars.size() : (pos + len);
+        if (endPos > chars.size()) {
+            endPos = chars.size();
         }
-        return result;
+
+        std::vector<Char> resultChars;
+        for (size_t i = pos; i < endPos; ++i) {
+            resultChars.push_back(chars[i]);
+        }
+
+        return String(resultChars);
     }
 
     void erase(size_t pos, size_t len = std::string::npos) {
@@ -130,7 +176,11 @@ public:
         }
     }
 
-    std::string operator[](size_t index) const {
+    size_t size() const {
+        return chars.size();
+    }
+
+    String operator[](size_t index) const {
         if (index >= chars.size()) {
             return "";
         }
@@ -148,6 +198,22 @@ public:
     Iterator begin() const { return Iterator(this); }
     Iterator end() const { return Iterator(this, chars.size()); }
 
+    bool operator==(const String& other) const {
+        if (chars.size() != other.chars.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < chars.size(); ++i) {
+            if (chars[i] != other.chars[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool operator!=(const String& other) const {
+        return !(*this == other);
+    }
+
 
     friend std::ostream& operator<<(std::ostream& os, const String& str) {
         return os << str.toUTF8();
@@ -156,10 +222,3 @@ public:
 private:
     std::vector<Char> chars;
 };
-
-int main() {
-    String s("你好，世界!");
-    std::cout << s << std::endl;
-    for (auto i : s) std::cout << i << "\n";
-    return 0;
-}
