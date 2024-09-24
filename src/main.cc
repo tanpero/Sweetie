@@ -16,6 +16,7 @@ int main() {
 
     // 测试特殊字符
     testLexer(R"(*+?(){}|^$)");
+    testLexer(R"(abc\p{Script=Greek}abc)");
 
     // 测试转义序列
     testLexer(R"(\d\w\s\t\n\r\\\)");

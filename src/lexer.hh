@@ -377,7 +377,7 @@ private:
         {
             return getGroupClose();
         }
-        groupStack.push({ position, type }); // 将位置和类型推入栈
+        groupStack.push({ position, type });
         return { type, { { "(" }, {} } };
     }
 
@@ -394,18 +394,18 @@ private:
     }
 
     Token getNonCapturingGroupOpen() {
-        position += 2; // 跳过(?:'
+        position += 2;
         return { TokenType::NonCapturingGroupOpen, { { "(?:" }, {} } };
     }
 
     Token getNamedCapturingGroupOpen() {
-        position += 2; // 跳过'?<'或'?P<'
+        position += 2;
         std::string name;
         while (input[position].isStdAlnum() || input[position] == '_') {
             name += input[position].toStdChar();
             position++;
         }
-        position++; // 跳过'>'
+        position++;
         return { TokenType::NamedCapturingGroupName, { { name }, {} } };
     }
 
@@ -504,6 +504,34 @@ private:
     }
 
     Token getUnicodeProperty(bool accept) {
-        return { TokenType::UnicodeProperty, { {}, {} } };
+        String propertyName;
+        String propertyValue;
+
+        position++;
+
+        expect(input[position], "{", position);
+
+        position++;
+        while (position < input.length() && input[position] != '}') {
+            Char c = input[position];
+            if (c == '=') {
+                position++;
+                while (position < input.length() && input[position] != '}') {
+                    propertyValue += input[position];
+                    position++;
+                }
+                break;
+            }
+            else {
+                propertyName += c;
+                position++;
+            }
+        }
+
+        expect(input[position], "}", position);
+        
+        position++;
+
+        return { TokenType::UnicodeProperty, {propertyName, propertyValue} };
     }
 };
