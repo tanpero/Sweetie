@@ -15,15 +15,19 @@ void expect(Char c, Char exp, int offset) {
 void expect(Char c, bool ok, String exp, int offset) {
     if (!ok) {
         std::cerr << "Invalid Character: \"" << c << "\" at position " << offset
-            << ", it should be a " << exp << "." << std::endl;
+            << ", it should be " << exp << "." << std::endl;
         exit(-1);
     }
 }
 
 
 class Lexer {
+    
+    bool inCharacterClass;
+
 public:
-    Lexer(const String& input) : input(input), position(0) {}
+    Lexer(const String& input) : input(input), position(0),
+                                    inCharacterClass(false) {}
 
     std::vector<Token> tokenize() {
         std::vector<Token> tokens;
@@ -44,6 +48,13 @@ public:
                 case '[': case ']': case '|': case '^': case '$': {
                     Token t = { TokenType::LiteralCharacter, { { c }, {} } };
                     tokens.emplace_back(t);
+                    position++;
+                    break;
+                }
+                case 'n': case 't': case 'r': {
+                    Token t = { TokenType::EscapeSequence, {{ String("\\") + c }, {} } };
+                    tokens.emplace_back(t);
+                    position++;
                     break;
                 }
                 case 'u':
@@ -55,12 +66,40 @@ public:
                     break;
                 case 'P':
                     tokens.emplace_back(getUnicodeProperty(false));
-                default:
+                default: {
+                    Token t = { TokenType::LiteralCharacter, { { c }, {} } };
+                    tokens.emplace_back(t);
+                    position++;
                     break;
+                }
                 }
             }
             else if (c == '{') {
                 tokens.emplace_back(getQuantifierBraces());
+            }
+            else if (c == '^') {
+                tokens.emplace_back(getAnchorStart());
+            }
+            else if (c == '$') {
+                tokens.emplace_back(getAnchorEnd());
+            }
+            else if (c == '?') {
+                tokens.emplace_back(getQuantifierQuestion());
+            }
+            else if (c == '*') {
+                tokens.emplace_back(getQuantifierStar());
+            }
+            else if (c == '+') {
+                tokens.emplace_back(getQuantifierPlus());
+            }
+            else if (c == '[') {
+                tokens.emplace_back(getCharacterClassOpen());
+                c = input[position];
+                while (c != ']') {
+                    tokens.emplace_back(getCharacterClassLiteral());
+                    c = input[position];
+                }
+                tokens.emplace_back(getCharacterClassClose());
             }
             else {
                 position++;
@@ -146,23 +185,28 @@ private:
     }
 
     Token getAnchorStart() {
-        return { TokenType::AnchorStart, { { '^' }, {}}};
+        position++;
+        return { TokenType::AnchorStart, { { "^" }, {}}};
     }
 
     Token getAnchorEnd() {
-        return { TokenType::AnchorEnd, { { '$' }, {}}};
+        position++;
+        return { TokenType::AnchorEnd, { { "$" }, {}}};
     }
 
     Token getQuantifierStar() {
-        return { TokenType::QuantifierStar, { { '*' }, {}}};
+        position++;
+        return { TokenType::QuantifierStar, { { "*" }, {}}};
     }
 
     Token getQuantifierPlus() {
-        return { TokenType::QuantifierPlus, { { '+' }, {}}};
+        position++;
+        return { TokenType::QuantifierPlus, { { "+" }, {}}};
     }
 
     Token getQuantifierQuestion() {
-        return { TokenType::QuantifierQuestion, { { '?' }, {}}};
+        position++;
+        return { TokenType::QuantifierQuestion, { { "?" }, {}}};
     }
 
     Token getQuantifierBraces() {
@@ -180,23 +224,64 @@ private:
     }
 
     Token getBranchAlternation() {
-        return { TokenType::BranchAlternation, { {}, {} } };
+        position++;
+        return { TokenType::BranchAlternation, { { "|" }, {}}};
     }
 
     Token getCharacterClassOpen() {
-        return { TokenType::CharacterClassOpen, { {}, {} } };
+        position++;
+        inCharacterClass = true;
+        return { TokenType::CharacterClassOpen, { { "[" }, {} } };
     }
 
     Token getCharacterClassClose() {
-        return { TokenType::CharacterClassClose, { {}, {} } };
+        position++;
+        inCharacterClass = false;
+        return { TokenType::CharacterClassClose, { { "]" }, {} } };
     }
 
     Token getCharacterClassRange() {
-        return { TokenType::CharacterClassRange, { {}, {} } };
+
+        // e.g. [a-z]
+        // c = 'a'
+        Char a = input[position];
+        position++;
+        // c = '-'
+        position++;
+        // c = 'z'
+        Char b = input[position];
+        position++;
+        return { TokenType::CharacterClassRange, { { a }, { b } } };
     }
 
     Token getCharacterClassLiteral() {
-        return { TokenType::CharacterClassLiteral, { {}, {} } };
+
+        // e.g. [123a-z-]
+        // c = '1' then push c
+        // the next char should be looked.
+        // next char = '-'?
+        Char c = input[position];
+        
+        // if c = 'a' or 'z'
+        position++;
+        // c = '-'
+        if (input[position] == "-")
+        {
+            // the next char = 'z' or ']'?
+            if (input[position + 1] == "]") {
+                // Now '-' is just a char
+                return { TokenType::CharacterClassLiteral, { { "-" }, {}}};
+            }
+            else
+            {
+                // Now '-' means range
+                position--;
+                // c = 'a'
+                return getCharacterClassRange();
+            }
+        }
+
+        return { TokenType::CharacterClassLiteral, { { c }, {} } };
     }
 
     Token getGroupOpen() {
@@ -309,6 +394,7 @@ private:
             position++;
             codepoint = getHexInteger(false);
             expect(input[position], '}', position);
+            expect(input[position - 1], codepoint <= 0x10FFFF, "under 0x10FFFF", position);
             // c = '}'
             position++;
         }

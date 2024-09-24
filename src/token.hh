@@ -25,6 +25,7 @@ enum class TokenType {
     CharacterClassClose, // 实例："]"
     CharacterClassRange, // 实例："a-z"
     CharacterClassLiteral, // 实例："a", "b"
+    CharacterClassNegative, // "^"
 
     // 捕获组
     GroupOpen, // 实例："("
@@ -131,6 +132,7 @@ struct Token {
     std::pair<String, String> value; 
 
     String toString() const {
-        return String("[Type: ") + tokenTypeMap[type] + String(", Value: ") + value.first + (value.second.empty() ? "" : " " + value.second) + "]\n";
+        return String("[Type: ") + tokenTypeMap[type] +
+            String(", Value: ") + value.first + (value.second.empty() ? "" : " " + value.second) + "]\n";
     }
 };

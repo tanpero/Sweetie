@@ -222,6 +222,38 @@ public:
         }
     }
 
+    void push_back(const Char& ch) {
+        chars.push_back(ch);
+    }
+
+    void clear() {
+        chars.clear();
+    }
+
+    std::vector<String> split(const String input, Char delimiter) {
+        std::vector<String> result;
+        String current;
+
+        for (Char ch : input) {
+            if (ch == delimiter) {
+                if (!current.empty()) {
+                    result.push_back(current);
+                    current.clear();
+                }
+            }
+            else {
+                current.push_back(ch);
+            }
+        }
+
+        if (!current.empty()) {
+            result.push_back(current);
+        }
+
+        return result;
+    }
+
+
     bool empty() const {
         return chars.empty();
     }
