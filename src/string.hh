@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <stdexcept>
-#include <cstring>
 
 class Char {
 public:
@@ -30,6 +30,14 @@ public:
 
     bool isASCII() const {
         return size == 1 && data[0] < 0x80;
+    }
+
+    char toStdChar() const {
+        return data[0];
+    }
+
+    bool isStdDigit() const {
+        return std::isdigit(data[0]);
     }
 
     bool isSingle() const {
@@ -60,6 +68,7 @@ private:
 class String {
 public:
     String() : chars() {}
+    String(Char ch) : chars({ ch }) {}
     String(std::vector<Char> vec) : chars(vec) {}
     String(const std::string& utf8) {
         for (size_t i = 0; i < utf8.size();) {
@@ -76,6 +85,26 @@ public:
                 throw std::runtime_error("Invalid UTF-8 encoding");
             }
             chars.push_back(Char(utf8.substr(i, charLen)));
+            i += charLen;
+        }
+    }
+
+     String(int num) {
+        std::string numStr = std::to_string(num);
+        for (size_t i = 0; i < numStr.size();) {
+            size_t charLen = 1;
+            if ((numStr[i] & 0x80) == 0) {
+            } else if ((numStr[i] & 0xE0) == 0xC0) {
+                charLen = 2;
+            } else if ((numStr[i] & 0xF0) == 0xE0) {
+                charLen = 3;
+            } else if ((numStr[i] & 0xF8) == 0xF0) {
+                charLen = 4;
+            }
+            if (i + charLen > numStr.size()) {
+                throw std::runtime_error("Invalid UTF-8 encoding");
+            }
+            chars.push_back(Char(numStr.substr(i, charLen)));
             i += charLen;
         }
     }
@@ -173,15 +202,39 @@ public:
         }
     }
 
-    size_t size() const {
+    bool starts_with(const String& other) const {
+        if (chars.size() < other.chars.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < other.chars.size(); ++i) {
+            if (chars[i] != other.chars[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void remove_prefix(size_t n) {
+        if (n >= chars.size()) {
+            chars.clear();
+        } else {
+            chars.erase(chars.begin(), chars.begin() + n);
+        }
+    }
+
+    bool empty() const {
+        return chars.empty();
+    }
+
+    size_t length() const {
         return chars.size();
     }
 
-    String operator[](size_t index) const {
+    Char operator[](size_t index) const {
         if (index >= chars.size()) {
-            return "";
+            return {};
         }
-        return chars[index].toUTF8();
+        return  { chars[index].toUTF8() };
     }
 
     std::string toUTF8() const {
@@ -216,6 +269,22 @@ public:
         return os << str.toUTF8();
     }
 
+
+    friend String operator+(const String& lhs, const String& rhs);
+    friend String& operator+=(String& lhs, const String& rhs);
+
 private:
     std::vector<Char> chars;
 };
+
+String operator+(const String& lhs, const String& rhs) {
+    std::vector<Char> newChars = lhs.chars;
+    newChars.insert(newChars.end(), rhs.chars.begin(), rhs.chars.end());
+    return String(newChars);
+}
+
+// 用于将一个String对象的内容添加到另一个String对象末尾的operator+=
+String& operator+=(String& lhs, const String& rhs) {
+    lhs.chars.insert(lhs.chars.end(), rhs.chars.begin(), rhs.chars.end());
+    return lhs;
+}

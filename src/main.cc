@@ -1,13 +1,13 @@
 #include "parser.hh"
 
-int main() {
-    String s("你好，世界!");
-    std::cout << s << std::endl;
-    for (auto i : s) std::cout << i << "\n";
-    std::cout << "\n\n";
-    std::cout << s.substr(0, 2) << "\n" << s.substr(3) << "\n";
-    std::cout << s[1] << "\n\n\n\n\n\n";
 
-    testParsers();
+int main() {
+    String input = R"(你好，{2,3}abc*^\\$)";
+    Lexer lexer(input);
+    std::vector<Token> tokens = lexer.tokenize();
+    for (const Token& token : tokens) {
+        std::cout << token.toString();
+    }
+
     return 0;
 }
