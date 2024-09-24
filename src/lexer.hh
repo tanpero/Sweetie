@@ -3,6 +3,7 @@
 #include <cctype>
 #include <iostream>
 #include <vector>
+#include <stack>
 
 void expect(Char c, Char exp, int offset) {
     if (c != exp) {
@@ -24,6 +25,7 @@ void expect(Char c, bool ok, String exp, int offset) {
 class Lexer {
     
     bool inCharacterClass;
+    std::stack<std::pair<size_t, TokenType>> groupStack;
 
 public:
     Lexer(const String& input) : input(input), position(0),
@@ -74,8 +76,21 @@ public:
                 }
                 }
             }
+            else if (c == '.') {
+                tokens.emplace_back(getAnyCharacter());
+            }
+            // "{}" = "?"
+            // a{} = a?
             else if (c == '{') {
-                tokens.emplace_back(getQuantifierBraces());
+                if (input[position + 1] == '}')
+                {
+                    position++;
+                    tokens.emplace_back(getQuantifierQuestion());
+                }
+                else
+                {
+                    tokens.emplace_back(getQuantifierBraces());
+                }
             }
             else if (c == '^') {
                 tokens.emplace_back(getAnchorStart());
@@ -92,19 +107,54 @@ public:
             else if (c == '+') {
                 tokens.emplace_back(getQuantifierPlus());
             }
+            else if (c == '|') {
+                tokens.emplace_back(getBranchAlternation());
+            }
+
+            // The "[" following "[" are all literal values,
+            // but once encountered "]", exit the Character Class.
+            // Then the following "]" are all literal values.
             else if (c == '[') {
-                tokens.emplace_back(getCharacterClassOpen());
-                c = input[position];
-                while (c != ']') {
-                    tokens.emplace_back(getCharacterClassLiteral());
-                    c = input[position];
+                if (inCharacterClass)
+                {
+                    Token t = { TokenType::LiteralCharacter, { { "[" }, {} } };
+                    tokens.emplace_back(t);
+                    position++;
                 }
-                tokens.emplace_back(getCharacterClassClose());
+                else
+                {
+                    tokens.emplace_back(getCharacterClassOpen());
+                    c = input[position];
+                    while (c != ']') {
+                        tokens.emplace_back(getCharacterClassLiteral());
+                        c = input[position];
+                    }
+                    tokens.emplace_back(getCharacterClassClose());
+                    position++;
+                }
+            }
+            else if (c == ']')
+            {
+                // Nude "]" will always be literal.
+                Token t = { TokenType::LiteralCharacter, { { "]" }, {} } };
+                tokens.emplace_back(t);
+                position++;
+            }
+            else if (c == '(') {
+                tokens.push_back(getGroupOpen());
+            }
+            else if (c == ')') {
+                tokens.push_back(getGroupClose());
             }
             else {
                 position++;
             }
         }
+
+        expect(input[position], inCharacterClass == false, " \"]\" to close the character class", position);
+
+        expect(input[position], groupStack.size() == 0, " \")\" to end the group", position);
+
         
         return tokens;
     }
@@ -115,13 +165,14 @@ private:
 
 
     bool isLiteralCharacter() {
-        return input[position] != '\\' &&
-               input[position] != '^' && input[position] != '$' &&
-               input[position] != '*' && input[position] != '+' &&
-               input[position] != '?' && input[position] != '|' &&
-               input[position] != '[' && input[position] != ']' &&
-               input[position] != '(' && input[position] != ')' &&
-               input[position] != '{' && input[position] != '}';
+        Char c = input[position];
+        return c != '.' && c != '\\' &&
+            c != '^' && c != '$' &&
+            c != '*' && c != '+' &&
+            c != '?' && c != '|' &&
+            c != '[' && c != ']' &&
+            c != '(' && c != ')' &&
+            c != '{' && c != '}';
     }
 
     int getInteger() {
@@ -181,7 +232,12 @@ private:
 
     
     Token getLiteralCharacter() {
-        return { TokenType::LiteralCharacter, { { input[position]}, {}}};
+        return { TokenType::LiteralCharacter, { { input[position] }, {}}};
+    }
+
+    Token getAnyCharacter() {
+        position++;
+        return { TokenType::AnyCharacter, { { "." }, {} } };
     }
 
     Token getAnchorStart() {
@@ -212,6 +268,7 @@ private:
     Token getQuantifierBraces() {
         // c = '{'
         position++;
+        expect(input[position], input[position] != '}', "NOT a }", position);
         // c = m or c = ','(m is 0)
         int m = (input[position] == ',') ? 0 : getInteger();
         // c = ','
@@ -281,36 +338,77 @@ private:
             }
         }
 
+        if (c == "\\")
+        {
+            position++;
+            c = input[position];
+            switch (c.toStdChar())
+            {
+            default:
+                break;
+            }
+        }
+
         return { TokenType::CharacterClassLiteral, { { c }, {} } };
     }
 
     Token getGroupOpen() {
-        return { TokenType::GroupOpen, { {}, {} } };
+        position++;
+        TokenType type = TokenType::GroupOpen; // 默认为普通捕获组
+        Char nextChar = input[position];
+        if (nextChar == '?') {
+            position++; // 跳过'?'
+            nextChar = input[position];
+            if (nextChar == ':') {
+                type = TokenType::NonCapturingGroupOpen;
+            }
+            else if (nextChar.isStdAlpha()) {
+                type = TokenType::NamedCapturingGroupOpen;
+                position++; // 跳过字母，如 '<' 或 'P'
+                String name;
+                while (input[position].isStdAlnum() || input[position] == '_') {
+                    name += input[position];
+                    position++;
+                }
+                return { type, { { name }, {} } };
+            }
+        }
+        else if (nextChar == ")")
+        {
+            return getGroupClose();
+        }
+        groupStack.push({ position, type }); // 将位置和类型推入栈
+        return { type, { { "(" }, {} } };
     }
 
     Token getGroupClose() {
-        return { TokenType::GroupClose, { {}, {} } };
-    }
-
-    Token getNamedCapturingGroupOpen() {
-        return { TokenType::NamedCapturingGroupOpen, { {}, {} } };
-    }
-
-    Token getNamedCapturingGroupName() {
-        return { TokenType::NamedCapturingGroupName, { {}, {} } };
-    }
-
-    Token getNamedCapturingGroupClose() {
-        return { TokenType::NamedCapturingGroupClose, { {}, {} } };
+        position++;
+        if (!groupStack.empty()) {
+            auto open = groupStack.top();
+            size_t openPos = open.first;
+            TokenType openType = open.second;
+            groupStack.pop();
+            return Token{ TokenType::GroupClose, { { ")" }, {} } };
+        }
+        return Token{ TokenType::GroupClose, { { ")" }, {} } };
     }
 
     Token getNonCapturingGroupOpen() {
-        return { TokenType::NonCapturingGroupOpen, { {}, {} } };
+        position += 2; // 跳过(?:'
+        return { TokenType::NonCapturingGroupOpen, { { "(?:" }, {} } };
     }
 
-    Token getNonCapturingGroupClose() {
-        return { TokenType::NonCapturingGroupClose, { {}, {} } };
+    Token getNamedCapturingGroupOpen() {
+        position += 2; // 跳过'?<'或'?P<'
+        std::string name;
+        while (input[position].isStdAlnum() || input[position] == '_') {
+            name += input[position].toStdChar();
+            position++;
+        }
+        position++; // 跳过'>'
+        return { TokenType::NamedCapturingGroupName, { { name }, {} } };
     }
+
 
     Token getAssertionLookahead() {
         return { TokenType::AssertionLookahead, { {}, {} } };

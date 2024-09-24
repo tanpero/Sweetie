@@ -4,6 +4,9 @@
 #include <map>
 
 enum class TokenType {
+
+    AnyCharacter, // "."
+
     // 字面量字符
     LiteralCharacter, // 实例："a", "b"
 
@@ -82,6 +85,7 @@ enum class TokenType {
 
 
 std::map<TokenType, std::string> tokenTypeMap = {
+    {{ TokenType::AnyCharacter}, { "AnyCharacter"}},
     {{ TokenType::LiteralCharacter}, { "LiteralCharacter" }},
     {{ TokenType::AnchorStart}, { "AnchorStart" }},
     {{ TokenType::AnchorEnd}, { "AnchorEnd" }},
@@ -91,6 +95,7 @@ std::map<TokenType, std::string> tokenTypeMap = {
     {{ TokenType::QuantifierBraces}, { "QuantifierBraces" }},
     {{ TokenType::BranchAlternation}, { "BranchAlternation" }},
     {{ TokenType::CharacterClassOpen}, { "CharacterClassOpen" }},
+    {{ TokenType::CharacterClassNegative }, { "CharacterClassNegative" }},
     {{ TokenType::CharacterClassClose}, { "CharacterClassClose" }},
     {{ TokenType::CharacterClassRange}, { "CharacterClassRange" }},
     {{ TokenType::CharacterClassLiteral}, { "CharacterClassLiteral" }},

@@ -40,6 +40,14 @@ public:
         return std::isdigit(data[0]);
     }
 
+    bool isStdAlpha() const {
+        return std::isalpha(data[0]);
+    }
+
+    bool isStdAlnum() const {
+        return std::isalnum(data[0]);
+    }
+
     bool isSingle() const {
         return size == 1;
     }
