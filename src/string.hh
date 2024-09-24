@@ -273,6 +273,7 @@ public:
     friend String operator+(const String& lhs, const String& rhs);
     friend String& operator+=(String& lhs, const String& rhs);
 
+
 private:
     std::vector<Char> chars;
 };
@@ -288,3 +289,37 @@ String& operator+=(String& lhs, const String& rhs) {
     lhs.chars.insert(lhs.chars.end(), rhs.chars.begin(), rhs.chars.end());
     return lhs;
 }
+
+
+String fromCodepoint(int unicode) {
+    std::string utf8;
+    if (unicode < 0x80) {
+        // 1-byte sequence
+        utf8 += static_cast<char>(unicode);
+    }
+    else if (unicode < 0x800) {
+        // 2-byte sequence
+        utf8 += static_cast<char>(0xC0 | (unicode >> 6));
+        utf8 += static_cast<char>(0x80 | (unicode & 0x3F));
+    }
+    else if (unicode < 0x10000) {
+        // 3-byte sequence
+        utf8 += static_cast<char>(0xE0 | (unicode >> 12));
+        utf8 += static_cast<char>(0x80 | ((unicode >> 6) & 0x3F));
+        utf8 += static_cast<char>(0x80 | (unicode & 0x3F));
+    }
+    else if (unicode <= 0x10FFFF) {
+        // 4-byte sequence
+        utf8 += static_cast<char>(0xF0 | (unicode >> 18));
+        utf8 += static_cast<char>(0x80 | ((unicode >> 12) & 0x3F));
+        utf8 += static_cast<char>(0x80 | ((unicode >> 6) & 0x3F));
+        utf8 += static_cast<char>(0x80 | (unicode & 0x3F));
+    }
+    else {
+        // Invalid Unicode code point
+        throw std::invalid_argument("Invalid Unicode code point");
+    }
+    return { utf8 };
+}
+
+

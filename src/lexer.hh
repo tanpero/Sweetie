@@ -4,6 +4,21 @@
 #include <iostream>
 #include <vector>
 
+void expect(Char c, Char exp, int offset) {
+    if (c != exp) {
+        std::cerr << "Invalid Character: \"" << c << "\" at position " << offset
+            << ", it should be \"" << exp << "\"." << std::endl;
+        exit(-1);
+    }
+}
+
+void expect(Char c, bool ok, String exp, int offset) {
+    if (!ok) {
+        std::cerr << "Invalid Character: \"" << c << "\" at position " << offset
+            << ", it should be a " << exp << "." << std::endl;
+        exit(-1);
+    }
+}
 
 
 class Lexer {
@@ -31,6 +46,15 @@ public:
                     tokens.emplace_back(t);
                     break;
                 }
+                case 'u':
+                    position++;
+                    tokens.emplace_back(getUnicodeCodePoint());
+                    break;
+                case 'p':
+                    tokens.emplace_back(getUnicodeProperty(true));
+                    break;
+                case 'P':
+                    tokens.emplace_back(getUnicodeProperty(false));
                 default:
                     break;
                 }
@@ -70,15 +94,50 @@ private:
 
         size_t length = position - start;
 
-        // TODO:
         if (length == 0) {
-            throw std::runtime_error("No integer found at position " + std::to_string(start));
+            expect(input[position], '}', position);
         }
 
         std::string intStr = input.substr(start, length).toUTF8();
 
         int value = std::stoi(intStr);
         return value;
+    }
+
+    // check: \uABCD or \u{ABCD(EF)} ?
+    int getHexInteger(bool check) {
+        size_t start = position;
+        int count = 0;
+        while (isHexDigit(input[position]) && position < input.length() && (check && (count < 4) || !check)) {
+            position++;
+            count++;
+        }
+        if (check) // should be \uABCD
+        {
+            expect(input[position], count == 4, "a hexadecimal digit", position);
+        }
+        else       // should be \{ABCD{EF}
+        {
+            expect(input[position], count >= 4 && count <= 6, "a hexadecimal digit or the length should <= 6", position);
+        }
+
+        size_t length = position - start;
+
+        if (length == 0) {
+            expect(input[position], false, "a hexadecimal digit", position);
+        }
+
+        std::string hexStr = input.substr(start, length).toUTF8();
+
+        int value = std::stoi(hexStr, nullptr, 16);
+        return value;
+    }
+
+    bool isHexDigit(const Char& ch) {
+        char c = ch.toStdChar();
+        return (c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'f') ||
+            (c >= 'A' && c <= 'F');
     }
 
     
@@ -241,10 +300,26 @@ private:
     }
 
     Token getUnicodeCodePoint() {
-        return { TokenType::UnicodeCodePoint, { {}, {} } };
+
+        int codepoint;
+
+        // c = '{' or hex digit
+        if (input[position] == '{')
+        {
+            position++;
+            codepoint = getHexInteger(false);
+            expect(input[position], '}', position);
+            // c = '}'
+            position++;
+        }
+        else
+        {
+            codepoint = getHexInteger(true);
+        }
+        return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, {}}};
     }
 
-    Token getUnicodeProperty() {
+    Token getUnicodeProperty(bool accept) {
         return { TokenType::UnicodeProperty, { {}, {} } };
     }
 };
