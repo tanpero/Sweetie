@@ -316,7 +316,7 @@ private:
         {
             codepoint = getHexInteger(true);
         }
-        return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, {}}};
+        return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) }}};
     }
 
     Token getUnicodeProperty(bool accept) {

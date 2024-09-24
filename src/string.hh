@@ -322,4 +322,23 @@ String fromCodepoint(int unicode) {
     return { utf8 };
 }
 
+String toHexString(int number) {
+    if (number == 0) {
+        return String("0");
+    }
 
+    const char hexDigits[] = "0123456789ABCDEF";
+    std::vector<Char> hexChars;
+
+    bool isNegative = number < 0;
+    if (isNegative) {
+        number = -number;
+    }
+    while (number > 0) {
+        int remainder = number % 16;
+        hexChars.insert(hexChars.begin(), hexDigits[remainder]);
+        number /= 16;
+    }
+
+    return String(hexChars);
+}
