@@ -38,6 +38,55 @@ public:
     std::vector<Token> tokenize() {
         while (position < input.length()) {
             Char c = input[position];
+
+            std::cout << c << std::boolalpha << inCharacterClass << "\n";
+            if (c == '-' && inCharacterClass &&
+                    tokens.back().type != TokenType::CharacterClassRange &&
+                    tokens.back().type != TokenType::CharacterClassRange_UC &&
+                    tokens.back().type != TokenType::CharacterClassRange_CU &&
+                    tokens.back().type != TokenType::CharacterClassRange_UU
+                ) {
+                Token lastT = tokens.back();
+                tokens.pop_back();
+                position++;
+                switch (input[position].toStdChar())
+                {
+                case '\\':
+                    position++;
+                    expect(input[position], canGetOrdinaryEscapedSequence(), "a correct escaped sequence", position);
+                    break;
+                case ']': {
+                    position++;
+                    Token t1{ TokenType::CharacterClassLiteral, { "-", {} } };
+                    Token t2{ TokenType::CharacterClassClose, { "]", {} } };
+                    tokens.emplace_back(t1);
+                    tokens.emplace_back(t2);
+                    continue;
+                }
+                default: {
+                    expect(input[position], isLiteralCharacter(), "a valid literal character", position);
+                    Token t{ TokenType::CharacterClassLiteral, { input[position], {}} };
+                    tokens.emplace_back(t);
+                }
+                }
+                Token nextT = tokens.back();
+                tokens.pop_back();
+                Token t0;
+                if (lastT.type == TokenType::CharacterClassLiteral)
+                {
+                    t0.type = (nextT.type == TokenType::CharacterClassLiteral)
+                        ? TokenType::CharacterClassRange : TokenType::CharacterClassRange_CU;
+                }
+                else
+                {
+                    t0.type = nextT.type == TokenType::CharacterClassLiteral
+                        ? TokenType::CharacterClassRange_UC : TokenType::CharacterClassRange_UU;
+                }
+                t0.value = { lastT.value.first, nextT.value.first };
+                tokens.emplace_back(t0);
+                continue;
+            }
+
             if (isLiteralCharacter()) {
                 tokens.emplace_back(getLiteralCharacter());
                 position++;
@@ -309,28 +358,6 @@ private:
         return { TokenType::CharacterClassClose, { { "]" }, {} } };
     }
 
-    Token getCharacterClassRange() {
-
-        // e.g. [a-z]
-        // c = 'a'
-        Char a = input[position];
-
-        if (a == "\\")
-        {
-            position++;
-            expect(input[position], canGetOrdinaryEscapedSequence(), "an correct escaped sequence", position);
-            Token t1 = tokens.back();
-        }
-
-        position++;
-        // c = '-'
-        position++;
-        // c = 'z'
-        Char b = input[position];
-        position++;
-        return { TokenType::CharacterClassRange, { { a }, { b } } };
-    }
-
     Token getCharacterClassLiteral() {
 
         // e.g. [123a-z-]
@@ -342,27 +369,30 @@ private:
         // if c = 'a' or 'z'
         position++;
         // c = '-'
-        if (input[position] == "-")
-        {
-            // the next char = 'z' or ']'?
-            if (input[position + 1] == "]") {
-                // Now '-' is just a char
-                Token t1{ TokenType::CharacterClassLiteral, { c, {} } };
-                return t1;
-            }
-            else
-            {
-                // Now '-' means range
-                position--;
-                // c = 'a'
-                return getCharacterClassRange();
-            }
-        }
+        //if (input[position] == "-")
+        //{
+        //    // the next char = 'z' or ']'?
+        //    if (input[position + 1] == "]") {
+        //        // Now '-' is just a char
+        //        Token t1{ TokenType::CharacterClassLiteral, { c, {} } };
+        //        return t1;
+        //    }
+        //    else
+        //    {
+        //        // Now '-' means range
+        //        position--;
+        //        // c = 'a'
+        //        return getCharacterClassRange();
+        //    }
+        //}
 
         if (c == "\\")
         {
             c = input[position];
             expect(c, canGetOrdinaryEscapedSequence(), "a valid escaped sequence", position);
+            Token t = tokens.back();
+            tokens.pop_back();
+            return t;
         }
 
         return { TokenType::CharacterClassLiteral, { { c }, {} } };
