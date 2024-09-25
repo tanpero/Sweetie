@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <optional>
 
 void expect(Char c, Char exp, int offset) {
     if (c != exp) {
@@ -43,80 +44,28 @@ public:
             }
             else if (c == '\\') {
                 position++;
+                if (canGetOrdinaryEscapedSequence())
+                {
+                    continue;
+                }
                 c = input[position];
                 switch (c.toStdChar())
-                {
-                case '\\': case '+': case '?': case '*':
-                case '{': case '}': case '(': case ')':
-                case '[': case ']': case '|': case '^': case '$': {
-                    Token t = { TokenType::LiteralCharacter, { { c }, {} } };
-                    tokens.emplace_back(t);
-                    position++;
-                    break;
-                }
-                case 'n': case 't': case 'r': case 'f': case 'v': {
-                    Token t = { TokenType::EscapeSequence, {{ String("\\") + c }, {} } };
-                    tokens.emplace_back(t);
-                    position++;
-                    break;
-                }
-                case 'd': case 'D': case 's': case 'S': case 'w': case 'W': case 'b': case 'B': {
+                {                
+                case 'b': case 'B': {
                     Token t = { TokenType::SpecialSequence, {{ String("\\") + c }, {} } };
                     tokens.emplace_back(t);
                     position++;
-                    break;
-                }
-
-                // Represents the control character with value equal to the letter's character value modulo 32.
-                // 
-                // For example, \cJ represents line break (\n),
-                // because the code point of J is 74, and 74 modulo 32 is 10,
-                // which is the code point of line break.
-                // 
-                // Because an uppercase letter and its lowercase form differ by 32,
-                // \cJ and \cj are equivalent.
-                case 'c': {
-                    position++;
-                    expect(input[position], input[position].isStdAlpha(), "a alpha character", position);
-                    Token t = { TokenType::LiteralCharacter, { { Char{ input[position].toStdChar() % 32 } }, {} } };
-                    tokens.emplace_back(t);
-                    break;
-                }
-                case 'x': {
-                    position++;
-                    char c1 = input[position].toStdChar();
-                    position++;
-                    char c2 = input[position].toStdChar();
-                    int codepoint = ((c1 >= '0' && c1 <= '9') ? c1 - '0' :
-                        ((c1 >= 'a' && c1 <= 'f') ? c1 - 'a' + 10 :
-                        ((c1 >= 'A' && c1 <= 'F') ? c1 - 'A' + 10 : 0))) * 16
-                        + ((c2 >= '0' && c2 <= '9') ? c2 - '0' :
-                            ((c2 >= 'a' && c2 <= 'f') ? c2 - 'a' + 10 :
-                                ((c2 >= 'A' && c2 <= 'F') ? c2 - 'A' + 10 : 0)));
-
-                    Token t = { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) } } };
-                    tokens.emplace_back(t);
-                    position++;
-                    break;
-                }
-                case 'u':
-                    position++;
-                    tokens.emplace_back(getUnicodeCodePoint());
-                    break;
-                case 'p':
-                    tokens.emplace_back(getUnicodeProperty(true));
-                    break;
-                case 'P':
-                    tokens.emplace_back(getUnicodeProperty(false));
-                case 'k': {
-                    position++;
-                    tokens.emplace_back(getNamedBackreference());
                     break;
                 }
                 case '1': case '2': case '3': case '4': case '5':
                 case '6': case '7': case '8': case '9':
                     tokens.emplace_back(getBackreference());
                     break;
+                case 'k': {
+                    position++;
+                    tokens.emplace_back(getNamedBackreference());
+                    break;
+                }
                 default: {
                     Token t = { TokenType::LiteralCharacter, { { c }, {} } };
                     tokens.emplace_back(t);
@@ -200,10 +149,10 @@ public:
                 position++;
             }
             else if (c == '(') {
-                tokens.push_back(getGroupOpen());
+                tokens.emplace_back(getGroupOpen());
             }
             else if (c == ')') {
-                tokens.push_back(getGroupClose());
+                tokens.emplace_back(getGroupClose());
             }
             else {
                 position++;
@@ -287,7 +236,6 @@ private:
             (c >= 'A' && c <= 'F');
     }
 
-
     Token getLiteralCharacter() {
         return { TokenType::LiteralCharacter, { { input[position] }, {}} };
     }
@@ -366,6 +314,14 @@ private:
         // e.g. [a-z]
         // c = 'a'
         Char a = input[position];
+
+        if (a == "\\")
+        {
+            position++;
+            expect(input[position], canGetOrdinaryEscapedSequence(), "an correct escaped sequence", position);
+            Token t1 = tokens.back();
+        }
+
         position++;
         // c = '-'
         position++;
@@ -391,7 +347,8 @@ private:
             // the next char = 'z' or ']'?
             if (input[position + 1] == "]") {
                 // Now '-' is just a char
-                return { TokenType::CharacterClassLiteral, { { "-" }, {}} };
+                Token t1{ TokenType::CharacterClassLiteral, { c, {} } };
+                return t1;
             }
             else
             {
@@ -404,13 +361,8 @@ private:
 
         if (c == "\\")
         {
-            position++;
             c = input[position];
-            switch (c.toStdChar())
-            {
-            default:
-                break;
-            }
+            expect(c, canGetOrdinaryEscapedSequence(), "a valid escaped sequence", position);
         }
 
         return { TokenType::CharacterClassLiteral, { { c }, {} } };
@@ -575,6 +527,78 @@ private:
 
     Token getModifier() {
         return { TokenType::Modifier, { {}, {} } };
+    }
+
+   bool canGetOrdinaryEscapedSequence() {
+       Char c = input[position];
+       switch (c.toStdChar())
+       {
+       case '\\': case '+': case '?': case '*':
+       case '{': case '}': case '(': case ')':
+       case '[': case ']': case '|': case '^': case '$': {
+           Token t = { TokenType::LiteralCharacter, { { c }, {} } };
+           tokens.emplace_back(t);
+           position++;
+           break;
+       }
+       case 'n': case 't': case 'r': case 'f': case 'v': {
+           Token t = { TokenType::EscapeSequence, {{ String("\\") + c }, {} } };
+           tokens.emplace_back(t);
+           position++;
+           break;
+       }
+
+        // Represents the control character with value equal to the letter's character value modulo 32.
+        // 
+        // For example, \cJ represents line break (\n),
+        // because the code point of J is 74, and 74 modulo 32 is 10,
+        // which is the code point of line break.
+        // 
+        // Because an uppercase letter and its lowercase form differ by 32,
+        // \cJ and \cj are equivalent.
+       case 'c': {
+           position++;
+           expect(input[position], input[position].isStdAlpha(), "a alpha character", position);
+           Token t = { TokenType::LiteralCharacter, { { Char{ input[position].toStdChar() % 32 } }, {} } };
+           tokens.emplace_back(t);
+           break;
+       }
+       case 'x': {
+           position++;
+           char c1 = input[position].toStdChar();
+           position++;
+           char c2 = input[position].toStdChar();
+           int codepoint = ((c1 >= '0' && c1 <= '9') ? c1 - '0' :
+               ((c1 >= 'a' && c1 <= 'f') ? c1 - 'a' + 10 :
+                   ((c1 >= 'A' && c1 <= 'F') ? c1 - 'A' + 10 : 0))) * 16
+               + ((c2 >= '0' && c2 <= '9') ? c2 - '0' :
+                   ((c2 >= 'a' && c2 <= 'f') ? c2 - 'a' + 10 :
+                       ((c2 >= 'A' && c2 <= 'F') ? c2 - 'A' + 10 : 0)));
+
+           Token t = { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) } } };
+           tokens.emplace_back(t);
+           position++;
+           break;
+       }
+       case 'u':
+           position++;
+           tokens.emplace_back(getUnicodeCodePoint());
+           break;
+       case 'p':
+           tokens.emplace_back(getUnicodeProperty(true));
+           break;
+       case 'P':
+           tokens.emplace_back(getUnicodeProperty(false));
+       case 'd': case 'D': case 's': case 'S': case 'w': case 'W': {
+           Token t = { TokenType::SpecialSequence, {{ String("\\") + c }, {} } };
+           tokens.emplace_back(t);
+           position++;
+           break;
+       }
+       default:
+           return false;
+       }
+       return true;
     }
 
     Token getUnicodeCodePoint() {
