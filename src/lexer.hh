@@ -60,20 +60,43 @@ public:
                     position++;
                     break;
                 }
+                case 'd': case 'D': case 's': case 'S': case 'w': case 'W': case 'b': case 'B': {
+                    Token t = { TokenType::SpecialSequence, {{ String("\\") + c }, {} } };
+                    tokens.emplace_back(t);
+                    position++;
+                    break;
+                }
 
-                        // Represents the control character with value equal to the letter's character value modulo 32.
-                        // 
-                        // For example, \cJ represents line break (\n),
-                        // because the code point of J is 74, and 74 modulo 32 is 10,
-                        // which is the code point of line break.
-                        // 
-                        // Because an uppercase letter and its lowercase form differ by 32,
-                        // \cJ and \cj are equivalent.
+                // Represents the control character with value equal to the letter's character value modulo 32.
+                // 
+                // For example, \cJ represents line break (\n),
+                // because the code point of J is 74, and 74 modulo 32 is 10,
+                // which is the code point of line break.
+                // 
+                // Because an uppercase letter and its lowercase form differ by 32,
+                // \cJ and \cj are equivalent.
                 case 'c': {
                     position++;
                     expect(input[position], input[position].isStdAlpha(), "a alpha character", position);
                     Token t = { TokenType::LiteralCharacter, { { Char{ input[position].toStdChar() % 32 } }, {} } };
                     tokens.emplace_back(t);
+                    break;
+                }
+                case 'x': {
+                    position++;
+                    char c1 = input[position].toStdChar();
+                    position++;
+                    char c2 = input[position].toStdChar();
+                    int codepoint = ((c1 >= '0' && c1 <= '9') ? c1 - '0' :
+                        ((c1 >= 'a' && c1 <= 'f') ? c1 - 'a' + 10 :
+                        ((c1 >= 'A' && c1 <= 'F') ? c1 - 'A' + 10 : 0))) * 16
+                        + ((c2 >= '0' && c2 <= '9') ? c2 - '0' :
+                            ((c2 >= 'a' && c2 <= 'f') ? c2 - 'a' + 10 :
+                                ((c2 >= 'A' && c2 <= 'F') ? c2 - 'A' + 10 : 0)));
+
+                    Token t = { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) } } };
+                    tokens.emplace_back(t);
+                    position++;
                     break;
                 }
                 case 'u':
@@ -149,7 +172,17 @@ public:
                 }
                 else
                 {
-                    tokens.emplace_back(getCharacterClassOpen());
+                    if (input[position + 1] == '^')
+                    {
+                        position++;
+                        Token t1{ TokenType::CharacterClassNegative, { "^", {} } };
+                        tokens.emplace_back(getCharacterClassOpen());
+                        tokens.emplace_back(t1);
+                    }
+                    else
+                    {
+                        tokens.emplace_back(getCharacterClassOpen());
+                    }
                     c = input[position];
                     while (c != ']' && position < input.length()) {
                         tokens.emplace_back(getCharacterClassLiteral());
@@ -219,14 +252,14 @@ private:
     }
 
     // check: \uABCD or \u{A(BCDEF)} ?
-    int getHexInteger(bool check) {
+    int getHexInteger(bool check, int x = 4) {
         size_t start = position;
         int count = 0;
-        while (isHexDigit(input[position]) && position < input.length() && (check && (count < 4) || !check)) {
+        while (isHexDigit(input[position]) && position < input.length() && (check && (count < x) || !check)) {
             position++;
             count++;
         }
-        if (check) // should be \uABCD
+        if (check && x == 4) // should be \uABCD
         {
             expect(input[position], count == 4, "a hexadecimal digit", position);
         }
@@ -295,6 +328,13 @@ private:
         expect(input[position], input[position] != '}', "NOT a }", position);
         // c = m or c = ','(m is 0)
         int m = (input[position] == ',') ? 0 : getInteger();
+        
+        // "{3}"
+        if (input[position] == '}')
+        {
+            return { TokenType::QuantifierBraces, { { m }, { m } } };
+        }
+
         // c = ','
         position++;
 
@@ -513,50 +553,6 @@ private:
         return { TokenType::AssertionNegativeLookbehind, { "(?<!", {}}};
     }
 
-    Token getSpecialSequence() {
-        return { TokenType::SpecialSequence, { {}, {} } };
-    }
-
-    Token getRecursiveMode() {
-        return { TokenType::RecursiveMode, { {}, {} } };
-    }
-
-    Token getConditionalExpressionOpen() {
-        return { TokenType::ConditionalExpressionOpen, { {}, {} } };
-    }
-
-    Token getConditionalExpressionClose() {
-        return { TokenType::ConditionalExpressionClose, { {}, {} } };
-    }
-
-    Token getConditionalExpressionCondition() {
-        return { TokenType::ConditionalExpressionCondition, { {}, {} } };
-    }
-
-    Token getConditionalExpressionBranch() {
-        return { TokenType::ConditionalExpressionBranch, { {}, {} } };
-    }
-
-    Token getBalanceGroupOpen() {
-        return { TokenType::BalanceGroupOpen, { {}, {} } };
-    }
-
-    Token getBalanceGroupName() {
-        return { TokenType::BalanceGroupName, { {}, {} } };
-    }
-
-    Token getBalanceGroupClose() {
-        return { TokenType::BalanceGroupClose, { {}, {} } };
-    }
-
-    Token getBalanceGroupBalancedOpen() {
-        return { TokenType::BalanceGroupBalancedOpen, { {}, {} } };
-    }
-
-    Token getBalanceGroupBalancedClose() {
-        return { TokenType::BalanceGroupBalancedClose, { {}, {} } };
-    }
-
     Token getBackreference() {
         return { TokenType::Backreference, { { input[position]}, {}} };
     }
@@ -579,10 +575,6 @@ private:
 
     Token getModifier() {
         return { TokenType::Modifier, { {}, {} } };
-    }
-
-    Token getEscapeSequence() {
-        return { TokenType::EscapeSequence, { {}, {} } };
     }
 
     Token getUnicodeCodePoint() {

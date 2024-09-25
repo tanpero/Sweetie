@@ -4,6 +4,8 @@
 #include <vector>
 #include <stdexcept>
 
+class String;
+
 class Char {
 public:
     Char() : data(), size(0) {}
