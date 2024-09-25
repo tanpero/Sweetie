@@ -26,6 +26,7 @@ class Lexer {
 
     String input;
     size_t position;
+    std::vector<Token> tokens;
     bool inCharacterClass;
     std::stack<std::pair<size_t, TokenType>> groupStack;
 
@@ -34,8 +35,6 @@ public:
         inCharacterClass(false) {}
 
     std::vector<Token> tokenize() {
-        std::vector<Token> tokens;
-
         while (position < input.length()) {
             Char c = input[position];
             if (isLiteralCharacter()) {
@@ -152,12 +151,12 @@ public:
                 {
                     tokens.emplace_back(getCharacterClassOpen());
                     c = input[position];
-                    while (c != ']') {
+                    while (c != ']' && position < input.length()) {
                         tokens.emplace_back(getCharacterClassLiteral());
                         c = input[position];
                     }
+                    expect(c, c == ']', "\"]\" to close the character class", position);
                     tokens.emplace_back(getCharacterClassClose());
-                    position++;
                 }
             }
             else if (c == ']')
@@ -178,9 +177,9 @@ public:
             }
         }
 
-        expect(input[position], inCharacterClass == false, " \"]\" to close the character class", position);
+        expect(input[position], inCharacterClass == false, "\"]\" to close the character class", position);
 
-        expect(input[position], groupStack.size() == 0, " \")\" to end the group", position);
+        expect(input[position], groupStack.size() == 0, "\")\" to end the group", position);
 
 
         return tokens;
@@ -377,36 +376,91 @@ private:
         return { TokenType::CharacterClassLiteral, { { c }, {} } };
     }
 
+    // 平衡组的语法
+    // (?<name>expr)：创建一个命名捕获组，并将捕获的文本压入堆栈。
+    // (?'name'expr)：同上，只是使用单引号。
+    // (?<-name>expr)：从堆栈中弹出一个指定的命名捕获组。
+    // (?'-name'expr)：同上，只是使用单引号。
+    // (?(group)yes | no)：如果堆栈中存在名为group的捕获组，则匹配yes部分；否则匹配no部分。
     Token getGroupOpen() {
 
         // c = '('
         position++;
+
         TokenType type = TokenType::GroupOpen; // 默认为普通捕获组
+        Token t = { type, { "(", {} } };
 
         Char nextChar = input[position];
-        if (nextChar == '?') {
-            position++; // 跳过'?'
-            nextChar = input[position];
-            if (nextChar == ':') {
-                type = TokenType::NonCapturingGroupOpen;
-            }
-            else if (nextChar.isStdAlpha()) {
-                type = TokenType::NamedCapturingGroupOpen;
-                position++; // 跳过字母，如 '<' 或 'P'
-                String name;
-                while (input[position].isStdAlnum() || input[position] == '_') {
-                    name += input[position];
-                    position++;
-                }
-                return { type, { { name }, {} } };
-            }
-        }
-        else if (nextChar == ")")
+
+        if (nextChar == '?')
         {
-            return getGroupClose();
+
+            position++;
+            nextChar = input[position];
+
+            switch (nextChar.toStdChar())
+            {
+            case ':':
+                position++;
+                t = getNonCapturingGroupOpen();
+                break;
+            case '<': {
+                // Named capturing group or negative lookahead assertion.
+                Char nc = input[position + 1];
+                if (nc == '=')
+                {
+                    position += 2;
+                    t = getAssertionLookbehind();
+                }
+                else if (nc == '!')
+                {
+                    position += 2;
+                    t = getAssertionNegativeLookbehind();
+                }
+                else
+                {
+                    position++;
+                    t = getNamedCapturingGroupOpen("<");
+                }
+                break;
+            }
+            case '\'':
+                position++;
+                t = getNamedCapturingGroupOpen("'");
+                break;
+            case 'P':
+                position++;
+                nextChar = input[position];
+                expect(nextChar, nextChar == '<',
+                    "\"<\" to start a named capturing group", position);
+                position++;
+                t = getNamedCapturingGroupOpen('<');
+                break;
+            case '=':
+                position++;
+                t = getAssertionLookahead();
+                break;
+            case '!':
+                position++;
+                t = getAssertionNegativeLookahead();
+                break;
+            case ')':
+                position++;
+                t = getGroupClose();
+                break;
+            default:
+
+                // TODO...
+                break;
+            }
+
         }
-        groupStack.push({ position, type });
-        return { type, { { "(" }, {} } };
+        else
+        {
+            groupStack.push({ position, type });
+        }
+
+        return t;
     }
 
     Token getGroupClose() {
@@ -422,15 +476,20 @@ private:
     }
 
     Token getNonCapturingGroupOpen() {
-        position += 2;
         return { TokenType::NonCapturingGroupOpen, { { "(?:" }, {} } };
     }
 
-    Token getNamedCapturingGroupOpen() {
-        position += 2;
-        std::string name;
-        while (input[position].isStdAlnum() || input[position] == '_') {
-            name += input[position].toStdChar();
+    Token getNamedCapturingGroupOpen(Char mark) {
+        String name;
+
+        // 捕获组的命名不能以数字开头
+        expect(input[position], !input[position].isStdDigit(), "NOT start with a digit", position);
+
+        Token t1{ TokenType::NamedCapturingGroupOpen, { "(?< ... >", {} } };
+        tokens.emplace_back(t1);
+
+        while (isLiteralCharacter() && input[position] != ">") {
+            name += input[position];
             position++;
         }
         position++;
@@ -439,19 +498,19 @@ private:
 
 
     Token getAssertionLookahead() {
-        return { TokenType::AssertionLookahead, { {}, {} } };
+        return { TokenType::AssertionLookahead, { "(?=", {}}};
     }
 
     Token getAssertionNegativeLookahead() {
-        return { TokenType::AssertionNegativeLookahead, { {}, {} } };
+        return { TokenType::AssertionNegativeLookahead, { "(?!", {}}};
     }
 
     Token getAssertionLookbehind() {
-        return { TokenType::AssertionLookbehind, { {}, {} } };
+        return { TokenType::AssertionLookbehind, { "(?<=", {}}};
     }
 
     Token getAssertionNegativeLookbehind() {
-        return { TokenType::AssertionNegativeLookbehind, { {}, {} } };
+        return { TokenType::AssertionNegativeLookbehind, { "(?<!", {}}};
     }
 
     Token getSpecialSequence() {
@@ -503,7 +562,7 @@ private:
     }
 
     Token getNamedBackreference() {
-        expect(input[position], '<', "\"<\" to start a named backreference", position);
+        expect(input[position], input[position] == '<', "\"<\" to start a named backreference", position);
         position++;
         expect(input[position], isLiteralCharacter(), "a literal character to named a backreference", position);
         String name;
