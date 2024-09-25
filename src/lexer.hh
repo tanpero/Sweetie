@@ -23,13 +23,15 @@ void expect(Char c, bool ok, String exp, int offset) {
 
 
 class Lexer {
-    
+
+    String input;
+    size_t position;
     bool inCharacterClass;
     std::stack<std::pair<size_t, TokenType>> groupStack;
 
 public:
     Lexer(const String& input) : input(input), position(0),
-                                    inCharacterClass(false) {}
+        inCharacterClass(false) {}
 
     std::vector<Token> tokenize() {
         std::vector<Token> tokens;
@@ -53,10 +55,26 @@ public:
                     position++;
                     break;
                 }
-                case 'n': case 't': case 'r': {
+                case 'n': case 't': case 'r': case 'f': case 'v': {
                     Token t = { TokenType::EscapeSequence, {{ String("\\") + c }, {} } };
                     tokens.emplace_back(t);
                     position++;
+                    break;
+                }
+
+                        // Represents the control character with value equal to the letter's character value modulo 32.
+                        // 
+                        // For example, \cJ represents line break (\n),
+                        // because the code point of J is 74, and 74 modulo 32 is 10,
+                        // which is the code point of line break.
+                        // 
+                        // Because an uppercase letter and its lowercase form differ by 32,
+                        // \cJ and \cj are equivalent.
+                case 'c': {
+                    position++;
+                    expect(input[position], input[position].isStdAlpha(), "a alpha character", position);
+                    Token t = { TokenType::LiteralCharacter, { { Char{ input[position].toStdChar() % 32 } }, {} } };
+                    tokens.emplace_back(t);
                     break;
                 }
                 case 'u':
@@ -68,6 +86,15 @@ public:
                     break;
                 case 'P':
                     tokens.emplace_back(getUnicodeProperty(false));
+                case 'k': {
+                    position++;
+                    tokens.emplace_back(getNamedBackreference());
+                    break;
+                }
+                case '1': case '2': case '3': case '4': case '5':
+                case '6': case '7': case '8': case '9':
+                    tokens.emplace_back(getBackreference());
+                    break;
                 default: {
                     Token t = { TokenType::LiteralCharacter, { { c }, {} } };
                     tokens.emplace_back(t);
@@ -155,13 +182,11 @@ public:
 
         expect(input[position], groupStack.size() == 0, " \")\" to end the group", position);
 
-        
+
         return tokens;
     }
 
 private:
-    String input;
-    size_t position;
 
 
     bool isLiteralCharacter() {
@@ -194,7 +219,7 @@ private:
         return value;
     }
 
-    // check: \uABCD or \u{ABCD(EF)} ?
+    // check: \uABCD or \u{A(BCDEF)} ?
     int getHexInteger(bool check) {
         size_t start = position;
         int count = 0;
@@ -208,7 +233,7 @@ private:
         }
         else       // should be \{ABCD{EF}
         {
-            expect(input[position], count >= 4 && count <= 6, "a hexadecimal digit or the length should <= 6", position);
+            expect(input[position], count && count <= 6, "a hexadecimal digit with length <= 6", position);
         }
 
         size_t length = position - start;
@@ -230,9 +255,9 @@ private:
             (c >= 'A' && c <= 'F');
     }
 
-    
+
     Token getLiteralCharacter() {
-        return { TokenType::LiteralCharacter, { { input[position] }, {}}};
+        return { TokenType::LiteralCharacter, { { input[position] }, {}} };
     }
 
     Token getAnyCharacter() {
@@ -242,27 +267,27 @@ private:
 
     Token getAnchorStart() {
         position++;
-        return { TokenType::AnchorStart, { { "^" }, {}}};
+        return { TokenType::AnchorStart, { { "^" }, {}} };
     }
 
     Token getAnchorEnd() {
         position++;
-        return { TokenType::AnchorEnd, { { "$" }, {}}};
+        return { TokenType::AnchorEnd, { { "$" }, {}} };
     }
 
     Token getQuantifierStar() {
         position++;
-        return { TokenType::QuantifierStar, { { "*" }, {}}};
+        return { TokenType::QuantifierStar, { { "*" }, {}} };
     }
 
     Token getQuantifierPlus() {
         position++;
-        return { TokenType::QuantifierPlus, { { "+" }, {}}};
+        return { TokenType::QuantifierPlus, { { "+" }, {}} };
     }
 
     Token getQuantifierQuestion() {
         position++;
-        return { TokenType::QuantifierQuestion, { { "?" }, {}}};
+        return { TokenType::QuantifierQuestion, { { "?" }, {}} };
     }
 
     Token getQuantifierBraces() {
@@ -282,7 +307,7 @@ private:
 
     Token getBranchAlternation() {
         position++;
-        return { TokenType::BranchAlternation, { { "|" }, {}}};
+        return { TokenType::BranchAlternation, { { "|" }, {}} };
     }
 
     Token getCharacterClassOpen() {
@@ -318,7 +343,7 @@ private:
         // the next char should be looked.
         // next char = '-'?
         Char c = input[position];
-        
+
         // if c = 'a' or 'z'
         position++;
         // c = '-'
@@ -327,7 +352,7 @@ private:
             // the next char = 'z' or ']'?
             if (input[position + 1] == "]") {
                 // Now '-' is just a char
-                return { TokenType::CharacterClassLiteral, { { "-" }, {}}};
+                return { TokenType::CharacterClassLiteral, { { "-" }, {}} };
             }
             else
             {
@@ -353,8 +378,11 @@ private:
     }
 
     Token getGroupOpen() {
+
+        // c = '('
         position++;
         TokenType type = TokenType::GroupOpen; // 默认为普通捕获组
+
         Char nextChar = input[position];
         if (nextChar == '?') {
             position++; // 跳过'?'
@@ -471,7 +499,23 @@ private:
     }
 
     Token getBackreference() {
-        return { TokenType::Backreference, { {}, {} } };
+        return { TokenType::Backreference, { { input[position]}, {}} };
+    }
+
+    Token getNamedBackreference() {
+        expect(input[position], '<', "\"<\" to start a named backreference", position);
+        position++;
+        expect(input[position], isLiteralCharacter(), "a literal character to named a backreference", position);
+        String name;
+        while (isLiteralCharacter() && input[position] != '>')
+        {
+            name += input[position];
+            position++;
+        }
+        expect(input[position], '>', "\">\" to end a named backreference", position);
+        Token t = { TokenType::NamedBackreference, { name, {} } };
+        position++;
+        return t;
     }
 
     Token getModifier() {
@@ -500,7 +544,7 @@ private:
         {
             codepoint = getHexInteger(true);
         }
-        return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) }}};
+        return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) }} };
     }
 
     Token getUnicodeProperty(bool accept) {
@@ -529,7 +573,7 @@ private:
         }
 
         expect(input[position], "}", position);
-        
+
         position++;
 
         return { TokenType::UnicodeProperty, {propertyName, propertyValue} };

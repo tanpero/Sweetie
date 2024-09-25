@@ -68,6 +68,7 @@ enum class TokenType {
 
     // 后引用
     Backreference, // 实例："\1"，数值最大为 "\9"
+    NamedBackreference, // 实例："\k<name>"
 
     // 修饰符
     Modifier, // 实例："?i"
@@ -122,6 +123,7 @@ std::map<TokenType, std::string> tokenTypeMap = {
     {{ TokenType::BalanceGroupBalancedOpen}, { "BalanceGroupBalancedOpen" }},
     {{ TokenType::BalanceGroupBalancedClose}, { "BalanceGroupBalancedClose" }},
     {{ TokenType::Backreference}, { "Backreference" }},
+    {{ TokenType::NamedBackreference }, { "NamedBackreference" }},
     {{ TokenType::Modifier}, { "Modifier" }},
     {{ TokenType::EscapeSequence}, { "EscapeSequence" }},
     {{ TokenType::UnicodeCodePoint}, { "UnicodeCodePoint" }},

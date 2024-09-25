@@ -2,6 +2,7 @@
 
 
 void testLexer(const String& input) {
+    std::cout << "\n    ---------- Regex: " << input << "\n";
     Lexer lexer(input);
     std::vector<Token> tokens = lexer.tokenize();
     for (const Token& token : tokens) {
@@ -44,6 +45,8 @@ int main() {
 
     // 测试锚点
     testLexer(R"(^abc$)");
+
+    testLexer(R"((?:<name>abc)123\k<name>456)");
 
     // 测试边界条件
     testLexer(R"(())");
