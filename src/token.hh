@@ -82,10 +82,6 @@ enum class TokenType {
     // Unicode 属性
     UnicodeProperty, // 实例："\p{L}"
 
-    CharacterClassRange_UC,
-    CharacterClassRange_CU,
-    CharacterClassRange_UU
-
 };
 
 
@@ -131,10 +127,7 @@ std::map<TokenType, std::string> tokenTypeMap = {
     {{ TokenType::Modifier}, { "Modifier" }},
     {{ TokenType::EscapeSequence}, { "EscapeSequence" }},
     {{ TokenType::UnicodeCodePoint}, { "UnicodeCodePoint" }},
-    {{ TokenType::UnicodeProperty}, { "UnicodeProperty" }},
-    {{ TokenType::CharacterClassRange_UC }, { "CharacterClassRange_UC"}},
-    { { TokenType::CharacterClassRange_CU }, { "CharacterClassRange_CU"}},
-    { { TokenType::CharacterClassRange_UU }, { "CharacterClassRange_UU"}}
+    {{ TokenType::UnicodeProperty}, { "UnicodeProperty" }}
 };
 
 
