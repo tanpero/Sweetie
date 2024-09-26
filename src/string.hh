@@ -1,3 +1,5 @@
+#ifndef _STRING_HH_
+#define _STRING_HH_
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -384,3 +386,9 @@ String toHexString(int number) {
 
     return String(hexChars);
 }
+
+int toInteger(String s) {
+    return std::stoi(s.toUTF8());
+}
+
+#endif // !_STRING_HH_

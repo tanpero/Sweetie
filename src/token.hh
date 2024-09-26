@@ -1,3 +1,8 @@
+#ifndef _TOKEN_HH_
+#define _TOKEN_HH_
+
+
+
 #include "string.hh"
 
 #include <tuple>
@@ -131,7 +136,8 @@ std::map<TokenType, std::string> tokenTypeMap = {
 };
 
 
-struct Token {
+struct Token
+{
     TokenType type;
 
     // 对于字符字面量、单字符标记等，只需要存储 first 成员；
@@ -143,3 +149,6 @@ struct Token {
             String(", Value: ") + value.first + (value.second.empty() ? "" : " " + value.second) + "]\n";
     }
 };
+
+
+#endif // !_TOKEN_HH_
