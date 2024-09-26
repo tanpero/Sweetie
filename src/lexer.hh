@@ -132,9 +132,13 @@ public:
                     {
                         tokens.emplace_back(getCharacterClassOpen());
                     }
+
+                    // [\xab-\xef]
+                    // [a-z]
+                    // [abc]
                     c = input[position];
                     while (c != ']' && position < input.length()) {
-                        tokens.emplace_back(getCharacterClassLiteral());
+                        getCharacterClassContent();
                         c = input[position];
                     }
                     expect(c, c == ']', "\"]\" to close the character class", position);
@@ -358,10 +362,11 @@ private:
                 return getCharacterClassRange();
             }
         }
-
+        
         if (c == "\\")
         {
             c = input[position];
+
             expect(c, canGetOrdinaryEscapedSequence(), "a valid escaped sequence", position);
         }
 
@@ -527,6 +532,63 @@ private:
 
     Token getModifier() {
         return { TokenType::Modifier, { {}, {} } };
+    }
+
+    void getCharacterClassContent() {
+        Char c = input[position];
+
+        switch (c.toStdChar())
+        {
+        case '\\':
+            position++;
+            expect(input[position], canGetOrdinaryEscapedSequence(), "a correct escaped sequence", position);
+            break;
+        case '-':
+            if (input[position + 1] == ']')
+            {
+                Token t{ TokenType::CharacterClassLiteral, { "-", {} } };
+                tokens.emplace_back(t);
+                position++;
+                return;
+            }
+            else
+            {
+                if (tokens.back().type == TokenType::CharacterClassRange)
+                {
+                    Token t{ TokenType::CharacterClassLiteral, { "-", {}} };
+                    tokens.emplace_back(t);
+                    position++;
+                }
+                else
+                {
+                    position++;
+                    c = input[position];
+                    if (c == '\\')
+                    {
+                        position++;
+                        expect(c, canGetOrdinaryEscapedSequence(), "a correct escaped sequence", position);
+                    }
+                    else {
+                        Token t{ TokenType::CharacterClassLiteral, { c, {} } };
+                        tokens.emplace_back(t);
+                        position++;
+                    }
+                    Token nextT = tokens.back();
+                    tokens.pop_back();
+                    Token lastT = tokens.back();
+                    tokens.pop_back();
+                    Token t{ TokenType::CharacterClassRange, { lastT.value.first, nextT.value.first } };
+                    tokens.emplace_back(t);
+                }
+            }
+            break;
+        default: {
+            Token t{ TokenType::CharacterClassLiteral, { c, {} } };
+            tokens.emplace_back(t);
+            position++;
+            break;
+        }
+        }
     }
 
    bool canGetOrdinaryEscapedSequence() {
