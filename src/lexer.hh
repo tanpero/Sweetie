@@ -6,7 +6,7 @@
 #include <stack>
 #include <optional>
 
-void expect(Char c, Char exp, int offset) {
+void expect(Char c, Char exp, size_t offset) {
     if (c != exp) {
         std::cerr << "Invalid Character: \"" << c << "\" at position " << offset
             << ", it should be \"" << exp << "\"." << std::endl;
@@ -14,7 +14,7 @@ void expect(Char c, Char exp, int offset) {
     }
 }
 
-void expect(Char c, bool ok, String exp, int offset) {
+void expect(Char c, bool ok, String exp, size_t offset) {
     if (!ok) {
         std::cerr << "Invalid Character: \"" << c << "\" at position " << offset
             << ", it should be " << exp << "." << std::endl;
@@ -524,7 +524,7 @@ private:
             name += input[position];
             position++;
         }
-        expect(input[position], '>', "\">\" to end a named backreference", position);
+        expect(input[position], input[position] == '>', "\">\" to end a named backreference", position);
         Token t = { TokenType::NamedBackreference, { name, {} } };
         position++;
         return t;

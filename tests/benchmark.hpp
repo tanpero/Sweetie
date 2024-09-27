@@ -100,7 +100,6 @@ do \
     std::cout << "Minimum Runtime: " << min_runtime << " ms" << std::endl; \
     std::cout << "Maximum Runtime: " << max_runtime << " ms" << std::endl; \
     std::cout << "Standard Deviation of Runtime: " << std_dev << " ms" << std::endl; \
-    std::cout << "Memory Usage: " << memory_usage << " bytes" << std::endl; \
 } \
 while (0)
 

@@ -7,6 +7,7 @@
 #include <stdexcept>
 
 class String;
+String fromCodepoint(int unicode);
 
 class Char {
 public:
@@ -66,6 +67,29 @@ public:
 
     bool operator!=(const Char& other) const {
         return data != other.data;
+    }
+
+    int toCodepoint() const {
+        unsigned char bytes[4];
+        std::memcpy(bytes, data.data(), data.size());
+        int codepoint = 0;
+        switch (data.size()) {
+        case 1:
+            codepoint = bytes[0];
+            break;
+        case 2:
+            codepoint = (((bytes[0] & 0x1F) << 6) | (bytes[1] & 0x3F));
+            break;
+        case 3:
+            codepoint = (((bytes[0] & 0x0F) << 12) | ((bytes[1] & 0x3F) << 6) | (bytes[2] & 0x3F));
+            break;
+        case 4:
+            codepoint = (((bytes[0] & 0x07) << 18) | ((bytes[1] & 0x3F) << 12) | ((bytes[2] & 0x3F) << 6) | (bytes[3] & 0x3F));
+            break;
+        default:
+            throw std::invalid_argument("Invalid UTF-8 encoding");
+        }
+        return codepoint;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const Char& ch) {
