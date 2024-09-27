@@ -651,6 +651,7 @@ private:
            break;
        case 'P':
            tokens.emplace_back(getUnicodeProperty(false));
+           break;
        case 'd': case 'D': case 's': case 'S': case 'w': case 'W': {
            Token t = { TokenType::SpecialSequence, {{ String("\\") + c }, {} } };
            tokens.emplace_back(t);
