@@ -1,7 +1,7 @@
 #include "matcher.hh"
 
 
-void remove(std::vector< std::pair<int, int>>& ranges, std::pair<int, int> to_remove) {
+void remove(std::vector<std::pair<int, int>>& ranges, std::pair<int, int> to_remove) {
     std::vector<std::pair<int, int>> result;
     for (auto& range : ranges) {
         if (range.second < to_remove.first) {
@@ -43,7 +43,8 @@ Matcher::Matcher(const Char& start, const Char& end) : type(Type::CharacterClass
 }
 
 Matcher::Matcher(const Matcher& other)
-    : type(other.type), literal(other.literal), enumerations(other.enumerations), codepointRanges(other.codepointRanges) {
+    : type(other.type), literal(other.literal), enumerations(other.enumerations),
+        codepointRanges(other.codepointRanges) {
 }
 
 Matcher& Matcher::operator+=(const Char& c) {

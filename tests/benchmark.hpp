@@ -99,7 +99,6 @@ do \
     std::cout << "Average Runtime: " << average_runtime << " ms" << std::endl; \
     std::cout << "Minimum Runtime: " << min_runtime << " ms" << std::endl; \
     std::cout << "Maximum Runtime: " << max_runtime << " ms" << std::endl; \
-    std::cout << "Standard Deviation of Runtime: " << std_dev << " ms" << std::endl; \
 } \
 while (0)
 

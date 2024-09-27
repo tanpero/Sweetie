@@ -30,7 +30,30 @@ void testLexer(const String& input) {
 }
 
 
+
+void testMatcher(const Matcher& matcher, Char ch) {
+    std::cout << "\n";
+    BENCHMARK([&]() {
+        for (int i = 0; i < pow(10, 6); i++ ) 
+            matcher.match(ch);
+        }, 100);
+}
+
+void testMatchers() {
+    Matcher m{ 'a', 'z' };
+    m += {0x1234, 0x2345};
+    m += {0x3456, 0x4567};
+    m += {0x5678, 0x6789};
+    m += {0x7890, 0x8901};
+    m += {0x9012, 0xFFFF};
+    testMatcher(m, 0xFFFE);
+
+    
+}
+
+
 int main() {
+    testMatchers();
     // Email
     //testLexer(R"((?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\]))");
     //testLexer(R"(abc[a-z\p{Script=Greek}])");
