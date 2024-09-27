@@ -26,6 +26,7 @@ public:
     std::string toUTF8() const;
     bool operator==(const Char& other) const;
     bool operator!=(const Char& other) const;
+    bool operator<(const Char& other) const;
     int toCodepoint() const;
     friend std::ostream& operator<<(std::ostream& os, const Char& ch);
 

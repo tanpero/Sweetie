@@ -67,6 +67,28 @@ bool Char::operator!=(const Char& other) const {
     return data != other.data;
 }
 
+bool Char::operator<(const Char& other) const
+{
+    std::string s1 = data;
+    std::string s2 = other.data;
+    if (s1.length() < s2.length()) {
+        return true; // s1 小于 s2
+    }
+    else if (s1.length() > s2.length()) {
+        return false; // s1 大于 s2
+    }
+
+    for (size_t i = 0; i < s1.length(); ++i) {
+        if (s1[i] < s2[i]) {
+            return true; // s1 小于 s2
+        }
+        else if (s1[i] > s2[i]) {
+            return false; // s1 大于 s2
+        }
+    }
+    return false;
+}
+
 int Char::toCodepoint() const {
     unsigned char bytes[4];
     std::memcpy(bytes, data.data(), data.size());
