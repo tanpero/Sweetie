@@ -242,6 +242,19 @@ Term::Term(bool _beginAnchor, std::unique_ptr<AST> factor0)
     factors.emplace_back(std::move(factor_));
 }
 
+Term::Term()
+{
+    hasBeginAnchor = hasEndAnchor = false;
+    factors.emplace_back(std::move(
+        ast<Factor>(
+            ast<Atom>(
+                ast<Literal>("")
+            ),
+            ast<Quantifier>()
+        )
+    ));
+}
+
 void Term::addFactor(std::unique_ptr<AST> factor)
 {
     factors.emplace_back(std::move(factor));

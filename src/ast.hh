@@ -198,6 +198,7 @@ protected:
     std::vector<std::unique_ptr<AST>> factors;
 public:
     Term(bool _beginAnchor, std::unique_ptr<AST> factor0);
+    Term();
     void addFactor(std::unique_ptr<AST> factor);
     void setEndAnchor();
     virtual String toString() const;
@@ -222,6 +223,21 @@ public:
     Regex(std::unique_ptr<AST> expr);
     virtual String toString() const;
 };
+
+template<typename T, typename... Args>
+std::unique_ptr<T> ast(Args&&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
+//const auto emptyTerm = ast<Term>(
+//    false,
+//    ast<Factor>(
+//        ast<Atom>(
+//            ast<Literal>("")
+//        ),
+//        ast<Quantifier>()
+//    )
+//);
 
 
 #endif // !_AST_HH_

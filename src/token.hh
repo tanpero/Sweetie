@@ -98,6 +98,7 @@ struct Token
     std::pair<String, String> value; 
 
     String toString() const;
+    bool is(TokenType t) const;
 };
 
 

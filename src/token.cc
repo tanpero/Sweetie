@@ -52,3 +52,9 @@ String Token::toString() const
     return String("[Type: ") + tokenTypeMap[type] +
         String(", Value: ") + value.first + (value.second.empty() ? "" : " " + value.second) + "]\n";
 }
+
+bool Token::is(TokenType t) const
+{
+    return type == t;
+    return false;
+}

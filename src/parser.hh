@@ -8,13 +8,21 @@
 class Parser {
 private:
     std::vector<Token> tokens; // Token流
-    size_t current;           // 当前Token的位置
+    size_t current;            // 当前Token的位置
+
+    // 确认当前 token 是否是最后一个
+    bool final() const;
+
+    // 确认是否已经结束所有 token
+    bool end() const;
 
     // 向前查找下一个Token
     Token lookahead() const;
 
     // 向前移动到下一个Token
     void advance();
+
+    void advanceWhenNonFinal();
 
     Token here() const;
 
