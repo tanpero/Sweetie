@@ -61,6 +61,11 @@ std::unique_ptr<AST> Parser::parseAnyCharacter()
 	return std::unique_ptr<AST>();
 }
 
+std::unique_ptr<AST> Parser::parseAssertion()
+{
+	return std::unique_ptr<AST>();
+}
+
 std::unique_ptr<AST> Parser::parseLookaheadAssertion()
 {
 	return std::unique_ptr<AST>();

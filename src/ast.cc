@@ -2,6 +2,8 @@
 
 static int capturingGroupId = 0;
 
+CharacterClass::CharacterClass(bool isNegative) : isNegative(isNegative) {}
+
 // 字符类范围节点
 void CharacterClass::addRange(const std::pair<Char, Char>& range) {
     ranges.emplace_back(range);
@@ -37,51 +39,9 @@ String Literal::toString() const
 
 String Anchor::toString() const
 {
-    return anchorType == Type::Begin ? "^" : "$";
+    return String(anchorType == Type::Begin ? "<At the head of one line>" : "<At the tail of one line>") + "\n";
 }
 
-Quantifier::Quantifier(std::unique_ptr<AST> subj, int min, int max) :
-    values({ min, max }), subject(std::move(subj)) {
-    type = Type::Designated;
-}
-
-Quantifier::Quantifier(std::unique_ptr<AST> subj, Type type) :
-    subject(std::move(subj)), type(type) {
-    switch (type)
-    {
-    case Quantifier::Type::OneOrMore:
-        values = { 1, -1 };
-        break;
-    case Quantifier::Type::ZeroOrMore:
-        values = { 0, -1 };
-        break;
-    case Quantifier::Type::ZeroOrOne:
-        values = { 0, 1 };
-        break;
-    }
-};
-
-String Quantifier::toString() const
-{
-    String s;
-    switch (type)
-    {
-    case Quantifier::Type::OneOrMore:
-        s = "Qualifier: One or more";
-        break;
-    case Quantifier::Type::ZeroOrMore:
-        s = "Qualifier: Zero or more";
-        break;
-    case Quantifier::Type::ZeroOrOne:
-        s = "Qualifier: Zero or one";
-        break;
-    case Quantifier::Type::Designated:
-        s = "Qualifier: At least " + String(values.first) + ", at most "
-            + (values.second != -1 ? String(values.second) : "infinity") + "\n";
-        break;
-    }
-    return s + subject->toString();
-}
 
 CapturingGroup::CapturingGroup(std::unique_ptr<AST> _expr)
 {
@@ -207,4 +167,134 @@ SpecialSequence::SpecialSequence(const String& seq)
 String SpecialSequence::toString() const
 {
     return "<Special Sequence>\n";
+}
+
+Quantifier::Quantifier() : type(Type::Once)
+{
+}
+
+Quantifier::Quantifier(int min, int max) : values({ min, max }) {
+    type = Type::Designated;
+}
+
+Quantifier::Quantifier(Type type) : type(type) {
+    switch (type)
+    {
+    case Quantifier::Type::OneOrMore:
+        values = { 1, -1 };
+        break;
+    case Quantifier::Type::ZeroOrMore:
+        values = { 0, -1 };
+        break;
+    case Quantifier::Type::ZeroOrOne:
+        values = { 0, 1 };
+        break;
+    }
+}
+
+String Quantifier::toString() const const
+{
+    String s;
+    switch (type)
+    {
+    case Quantifier::Type::Once:
+        s = "No Qualifier";
+        break;
+    case Quantifier::Type::OneOrMore:
+        s = "Qualifier: One or more";
+        break;
+    case Quantifier::Type::ZeroOrMore:
+        s = "Qualifier: Zero or more";
+        break;
+    case Quantifier::Type::ZeroOrOne:
+        s = "Qualifier: Zero or one";
+        break;
+    case Quantifier::Type::Designated:
+        s = "Qualifier: At least " + String(values.first) + ", at most "
+            + (values.second != -1 ? String(values.second) : "infinity");
+        break;
+    }
+    s += "\n";
+    return s;
+}
+
+Factor::Factor(std::unique_ptr<AST> assertion) : assertion(std::move(assertion))
+{
+    type = Type::Assertion;
+}
+
+Factor::Factor(std::unique_ptr<AST> atom, std::unique_ptr<AST> quantifier)
+    : atom_quantifier({ std::move(atom), std::move(quantifier) })
+{
+    type = Type::Atom_Quantifier;
+}
+
+String Factor::toString() const
+{
+    return "[Begin Factor]\n" + String(type == Type::Assertion ? "<Assertion>\n" + assertion->toString()
+        : "<Atom>\n" + atom_quantifier.first->toString()
+            + "\n<Quantifier>\n" + atom_quantifier.second->toString()) + "[End Factor]\n";
+}
+
+Term::Term(bool _beginAnchor, std::unique_ptr<AST> factor0)
+    : hasBeginAnchor(_beginAnchor), factor_(std::move(factor0))
+{
+    factors.emplace_back(std::move(factor_));
+}
+
+void Term::addFactor(std::unique_ptr<AST> factor)
+{
+    factors.emplace_back(std::move(factor));
+}
+
+void Term::setEndAnchor()
+{
+    hasEndAnchor = true;
+}
+
+String Term::toString() const
+{
+    String s = "[Begin Term]";
+    for (auto& fac : factors) {
+        s += fac->toString();
+    }
+    s += "[End Term]\n";
+    return s;
+}
+
+Expression::Expression(std::unique_ptr<AST> term0) : term_(std::move(term0))
+{
+    terms.emplace_back(std::move(term_));
+}
+
+void Expression::addTerm(std::unique_ptr<AST> term)
+{
+    terms.emplace_back(std::move(term));
+}
+
+String Expression::toString() const
+{
+    String s = "[Begin Expression]";
+    for (auto& t : terms) {
+        s += t->toString();
+    }
+    s += "[End Expression]\n";
+    return s;
+}
+
+Regex::Regex(std::unique_ptr<AST> expr) : expression(std::move(expr))
+{
+}
+
+String Regex::toString() const {
+    return "[Begin Regex]\n" + expression->toString() + "[End Regex]\n";
+}
+
+Atom::Atom(std::unique_ptr<AST> atom_) : atom(std::move(atom_))
+{
+}
+
+String Atom::toString() const
+{
+    return "[Begin Atom]\n" + atom->toString() + "[End Atom]\n";
 }

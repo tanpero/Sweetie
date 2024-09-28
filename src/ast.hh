@@ -31,7 +31,7 @@ protected:
     std::set<Char> chars;
     bool isNegative;
 public:
-    CharacterClass(bool isNegative) : isNegative(isNegative) {}
+    CharacterClass(bool isNegative);
     void addRange(const std::pair<Char, Char>& range);
     void addChar(const Char& ch);
     virtual String toString() const;
@@ -58,15 +58,15 @@ public:
 class Quantifier : public AST {
 protected:
     std::pair<int, int> values;
-    std::unique_ptr<AST> subject;
+public:
     enum class Type
     {
-        OneOrMore, ZeroOrMore, ZeroOrOne, Designated
+        OneOrMore, ZeroOrMore, ZeroOrOne, Designated, Once
     };
     Type type;
-public:
-    Quantifier(std::unique_ptr<AST> subj, int min, int max);
-    Quantifier(std::unique_ptr<AST> subj, Type type);
+    Quantifier();
+    Quantifier(int min, int max);
+    Quantifier(Type type);
     virtual String toString() const;
 };
 
@@ -163,5 +163,65 @@ public:
     SpecialSequence(const String& seq);
     virtual String toString() const;
 };
+
+class Atom : public AST {
+protected:
+    std::unique_ptr<AST> atom;
+public:
+    Atom(std::unique_ptr<AST> atom_);
+    virtual String toString() const;
+};
+
+// 匹配因子：原子（及其量词）或断言
+class Factor : public AST {
+protected:
+    std::unique_ptr<AST> assertion;
+    std::pair<std::unique_ptr<AST>, std::unique_ptr<AST>> atom_quantifier;
+public:
+    enum class Type
+    {
+        Atom_Quantifier, Assertion
+    };
+    Type type;
+    Factor(std::unique_ptr<AST> assertion);
+    Factor(std::unique_ptr<AST> atom, std::unique_ptr<AST> quantifier);
+    virtual String toString() const;
+};
+
+
+// 匹配项：匹配因子的序列
+class Term : public AST {
+protected:
+    bool hasBeginAnchor;
+    bool hasEndAnchor;
+    std::unique_ptr<AST> factor_;
+    std::vector<std::unique_ptr<AST>> factors;
+public:
+    Term(bool _beginAnchor, std::unique_ptr<AST> factor0);
+    void addFactor(std::unique_ptr<AST> factor);
+    void setEndAnchor();
+    virtual String toString() const;
+};
+
+// 匹配式：各可选匹配项的并集
+class Expression : public AST {
+protected:
+    std::vector<std::unique_ptr<AST>> terms;
+    std::unique_ptr<AST> term_;
+public:
+    Expression(std::unique_ptr<AST> term0);
+    void addTerm(std::unique_ptr<AST> term);
+    virtual String toString() const;
+};
+
+// 正则表达式：最外层的匹配式
+class Regex : public AST {
+protected:
+    std::unique_ptr<AST> expression;
+public:
+    Regex(std::unique_ptr<AST> expr);
+    virtual String toString() const;
+};
+
 
 #endif // !_AST_HH_

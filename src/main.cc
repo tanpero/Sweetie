@@ -51,16 +51,64 @@
 //    
 //}
 
+#define left_ast(C) std::move(std::make_unique<C>(
+#define right_ast   ))
 
 int main() {
-    auto ast1 = std::make_unique<Literal>("a");
-    auto ast2 = std::make_unique<NamedCapturingGroup>("name", std::move(ast1));
-    std::cout << ast2->toString() << "\n";
-    //testMatchers();
-    // Email
-    //testLexer(R"((?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\]))");
-    //testLexer(R"(abc[a-z\p{Script=Greek}])");
-    // Url
-    //testLexer(R"(([a-z]([a-z]|\d|\+|-|\.)*):(\/\/(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?((\[(|(v[\da-f]{1,}\.(([a-z]|\d|-|\.|_|~)|[!\$&'\(\)\*\+,;=]|:)+))\])|((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=])*)(:\d*)?)(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*|(\/((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)|((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)|((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)){0})(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(\#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?)");
+    
+    
+    // [a-zA-Z]*(\d+)|(\d{1,3})
+
+    // 创建一个字符类，匹配一个字母
+    auto letterClass = std::make_unique<CharacterClass>(false);
+    letterClass->addRange({ 'a', 'z' });
+    letterClass->addRange({ 'A', 'Z' });
+
+    auto atom1 = std::make_unique<Atom>(std::move(letterClass));
+    auto quantifier1 = std::make_unique<Quantifier>(Quantifier::Type::ZeroOrMore);
+    auto factor1 = std::make_unique<Factor>(std::move(atom1), std::move(quantifier1));
+
+    auto factor2 = std::make_unique<Factor>(
+        left_ast(Atom)
+            
+            left_ast(CapturingGroup)
+                
+                left_ast(Factor)
+
+                    left_ast(Atom)
+                        
+                        left_ast(SpecialSequence)(R"(\d)")
+                        right_ast
+
+                    right_ast,
+
+                    left_ast(Quantifier)(Quantifier::Type::OneOrMore)
+
+                    right_ast
+
+                right_ast
+
+            right_ast
+        right_ast,
+
+
+
+        left_ast(Quantifier) right_ast
+    
+    );
+
+    auto term1 = left_ast(Term) false, std::move(factor1) right_ast;
+    term1->addFactor(std::move(factor2));
+
+    std::cout << term1->toString();
+
+    /*auto qualifier1 = std::make_unique<Quantifier>(std::move(letterClass), Quantifier::Type::ZeroOrMore);
+    auto d = std::make_unique<SpecialSequence>(R"(\d)");
+    auto qualifier2 = std::make_unique<Quantifier>(std::move(d), Quantifier::Type::OneOrMore);
+
+    auto capturingGroup1 = std::make_unique<CapturingGroup>(std::move(qualifier2));*/
+
+
+
     return 0;
 }

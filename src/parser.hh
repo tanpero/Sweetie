@@ -27,21 +27,21 @@ private:
      * Regex → Expression
      * Expression → Term { "|" Term }
      * Term → { BeginAnchor } Factor { Factor } { EndAnchor }
-     * Factor → Atom { Qualifier }
+     * Factor → Atom { Qualifier } | Assertion
      * Atom → LiteralCharacter
      *      → CharacterClass
      *      → AnyCharacter
-     *      → "(?=" Expression ")" (正向先行断言)
-     *      → "(?!" Expression ")" (负向先行断言)
-     *      → "(?<=" Expression ")" (正向后行断言)
-     *      → "(?<!" Expression ")" (负向后行断言)
-     *      → "\b" (单词边界)
      *      → Group
      *      → NamedCapturingGroup
      *      → NonCapturingGroup
      *      → Backreference
      *      → UnicodeProperty
      * Quantifier → "?" | "*" | "+" | "{"[Number][","[Number]] "}"
+     * Assertion → "(?=" Expression ")" (正向先行断言)
+     *           → "(?!" Expression ")" (负向先行断言)
+     *           → "(?<=" Expression ")" (正向后行断言)
+     *           → "(?<!" Expression ")" (负向后行断言)
+     *           → "\b" (单词边界)
      * Group → "(" Expression ")"
      * NamedCapturingGroup → "(?P<" Name ">" Expression ")"
      * NonCapturingGroup → "(?:" Expression ")"
@@ -57,11 +57,7 @@ private:
     std::unique_ptr<AST> parseLiteral();
     std::unique_ptr<AST> parseCharacterClass();
     std::unique_ptr<AST> parseAnyCharacter();
-    std::unique_ptr<AST> parseLookaheadAssertion();
-    std::unique_ptr<AST> parseNegativeLookaheadAssertion();
-    std::unique_ptr<AST> parseLookbehindAssertion();
-    std::unique_ptr<AST> parseNegativeLookbehindAssertion();
-    std::unique_ptr<AST> parseWordBound();
+
     std::unique_ptr<AST> parseGroup();
     std::unique_ptr<AST> parseNamedCapturingGroup();
     std::unique_ptr<AST> parseNonapturingGroup();
@@ -69,6 +65,13 @@ private:
     std::unique_ptr<AST> parseUnicodeProperty();
 
     std::unique_ptr<AST> parseQuantifier();
+
+    std::unique_ptr<AST> parseAssertion();
+    std::unique_ptr<AST> parseLookaheadAssertion();
+    std::unique_ptr<AST> parseNegativeLookaheadAssertion();
+    std::unique_ptr<AST> parseLookbehindAssertion();
+    std::unique_ptr<AST> parseNegativeLookbehindAssertion();
+    std::unique_ptr<AST> parseWordBound();
 
 public:
     Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
