@@ -12,6 +12,16 @@ void CharacterClass::addChar(const Char& ch) {
     chars.insert(ch);
 }
 
+std::vector<std::pair<Char, Char>>&& CharacterClass::getRanges()
+{
+    return std::move(ranges);
+}
+
+std::set<Char>&& CharacterClass::getChars()
+{
+    return std::move(chars);
+}
+
 void CharacterClass::negative()
 {
     isNegative = !isNegative;
@@ -36,6 +46,8 @@ String AnyCharacter::toString() const
 {
     return "Any Character\n";
 }
+
+Literal::Literal(Char v) : value(v) {}
 
 String Literal::toString() const
 {

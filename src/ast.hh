@@ -20,7 +20,7 @@ class Literal : public AST {
 protected:
     Char value;
 public:
-    Literal(Char v) : value(v) {}
+    Literal(Char v);
     virtual String toString() const;
 };
 
@@ -34,6 +34,8 @@ public:
     CharacterClass(bool isNegative);
     void addRange(const std::pair<Char, Char>& range);
     void addChar(const Char& ch);
+    std::vector<std::pair<Char, Char>>&& getRanges();
+    std::set<Char>&& getChars();
     void negative();
     virtual String toString() const;
 };
@@ -213,17 +215,5 @@ template<typename T, typename... Args>
 std::unique_ptr<T> ast(Args&&... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
-
-
-//const auto emptyTerm = ast<Term>(
-//    false,
-//    ast<Factor>(
-//        ast<Atom>(
-//            ast<Literal>("")
-//        ),
-//        ast<Quantifier>()
-//    )
-//);
-
 
 #endif // !_AST_HH_

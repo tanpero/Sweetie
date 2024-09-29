@@ -36,12 +36,12 @@ void Parser::error(const String& message) const
     exit(-1);
 }
 
-std::unique_ptr<AST> Parser::convertSpecialSequenceToActualAST(SpecialSequenceType type)
+std::unique_ptr<CharacterClass> asWhitespaceCharacterClass(bool isNegative)
 {
 
     // The \s equivalents to
     //     [\f\n\r\t\v\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]
-    auto spaceCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::S);
+    auto spaceCharacterClass = ast<CharacterClass>(isNegative);
     spaceCharacterClass->addChar("\f");
     spaceCharacterClass->addChar("\n");
     spaceCharacterClass->addChar("\r");
@@ -58,19 +58,36 @@ std::unique_ptr<AST> Parser::convertSpecialSequenceToActualAST(SpecialSequenceTy
     spaceCharacterClass->addChar(fromCodepoint(0x3000));
     spaceCharacterClass->addChar(fromCodepoint(0xfeff));
 
+    return spaceCharacterClass;
+}
+
+std::unique_ptr<CharacterClass> asWordCharacterClass(bool isNegative)
+{
+
     // The \w equivalents to
     //     [0-9A-Za-z_]
-    auto wordCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::W);
+    auto wordCharacterClass = ast<CharacterClass>(isNegative);
     wordCharacterClass->addRange({ "0", "9" });
     wordCharacterClass->addRange({ "A", "Z" });
     wordCharacterClass->addRange({ "a", "z" });
     wordCharacterClass->addChar("_");
 
+    return wordCharacterClass;
+}
+
+std::unique_ptr<CharacterClass> asDigitCharacterClass(bool isNegative)
+{
+
     // The \d equivalents to
     //     [0-9]
-    auto digitCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::D);
+    auto digitCharacterClass = ast<CharacterClass>(isNegative);
     digitCharacterClass->addRange({ "0", "9" });
 
+    return digitCharacterClass;
+}
+
+std::unique_ptr<AST> Parser::convertSpecialSequenceToActualAST(SpecialSequenceType type)
+{
     // The \b equivalents to
     //     (?<=\w)(?=\W)|(?<=\W)(?=\w)
     // The \B equivalents to
@@ -92,13 +109,13 @@ std::unique_ptr<AST> Parser::convertSpecialSequenceToActualAST(SpecialSequenceTy
     case SpecialSequenceType::t:
         return ast<Atom>(std::move(ast<Literal>("\t")));
     case SpecialSequenceType::s: case SpecialSequenceType::S:
-        return ast<Atom>(std::move(spaceCharacterClass));
+        return ast<Atom>(std::move(asWhitespaceCharacterClass(type == SpecialSequenceType::S)));
     case SpecialSequenceType::w: case SpecialSequenceType::W:
-        return ast<Atom>(std::move(wordCharacterClass));
+        return ast<Atom>(std::move(asWordCharacterClass(type == SpecialSequenceType::W)));
     case SpecialSequenceType::d: case SpecialSequenceType::D:
-        return ast<Atom>(std::move(digitCharacterClass));
+        return ast<Atom>(std::move(asDigitCharacterClass(type == SpecialSequenceType::D)));
     case SpecialSequenceType::b: case SpecialSequenceType::B:
-        error("Internal Error: \\b and \\B is not implemented");
+        error("Internal Error: \\b and \\B are not implemented");
         return nullptr;
     default:
         return nullptr;
@@ -336,6 +353,48 @@ std::unique_ptr<AST> Parser::parseAtom()
             {
                 characterClass->addRange({ t.value.first[0],
                                            t.value.second[0] });
+            }
+            else if (t.is(TokenType::SpecialSequence))
+            {
+                SpecialSequenceType type = translateSpecialSequence(t.value.first);
+                switch (type)
+                {
+                case SpecialSequenceType::r:
+                    characterClass->addChar("\r");
+                    break;
+                case SpecialSequenceType::n:
+                    characterClass->addChar("\n");
+                    break;
+                case SpecialSequenceType::t:
+                    characterClass->addChar("\t");
+                    break;
+                case SpecialSequenceType::f:
+                    characterClass->addChar("\f");
+                    break;
+                case SpecialSequenceType::v:
+                    characterClass->addChar("\v");
+                    break;
+                case SpecialSequenceType::s: {
+                    auto chars = asWhitespaceCharacterClass(false)->getChars();
+                    for (const auto& ch : chars) characterClass->addChar(ch);
+                    auto ranges = asWhitespaceCharacterClass(false)->getRanges();
+                    for (const auto& range : ranges) characterClass->addRange(range);
+                    break;
+                }
+                case SpecialSequenceType::w: {
+                    characterClass->addRange({ "0", "9" });
+                    characterClass->addRange({ "A", "Z" });
+                    characterClass->addRange({ "a", "z" });
+                    characterClass->addChar("_");
+                    break;
+                }
+                case SpecialSequenceType::d: {
+                    characterClass->addRange({ "0", "9" });
+                    break;
+                }
+                case SpecialSequenceType::W: case SpecialSequenceType::S: case SpecialSequenceType::D:
+                    error("Internal Error: \\S and \\W and \\W are not implemented");
+                }
             }
             else
             {
