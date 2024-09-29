@@ -268,9 +268,17 @@ void Term::setEndAnchor()
 
 String Term::toString() const
 {
-    String s = "[Begin Term]";
+    String s = "[Begin Term]\n";
+    if (hasBeginAnchor)
+    {
+        s += "<Expect to see the beginning of the line>\n";
+    }
     for (auto& fac : factors) {
         s += fac->toString();
+    }
+    if (hasEndAnchor)
+    {
+        s += "<Expect to see the ending of the line>\n";
     }
     s += "[End Term]\n";
     return s;
@@ -288,7 +296,7 @@ void Expression::addTerm(std::unique_ptr<AST> term)
 
 String Expression::toString() const
 {
-    String s = "[Begin Expression]";
+    String s = "[Begin Expression]\n";
     for (auto& t : terms) {
         s += t->toString();
     }

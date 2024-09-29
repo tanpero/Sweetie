@@ -108,7 +108,7 @@ int main() {
 
     auto capturingGroup1 = std::make_unique<CapturingGroup>(std::move(qualifier2));*/
 
-    String regex = "甲*乙{3,5}[a-z好-坏]丙.丁";
+    String regex = R"(abc|^甲*乙{3,5}[a-z好-坏\u1234-\u5678]丙.丁|)";
 
     Lexer lexer(regex);
     auto tokens = lexer.tokenize();

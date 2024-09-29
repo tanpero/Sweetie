@@ -279,10 +279,30 @@ std::unique_ptr<AST> Parser::parseGroup()
 }
 
 */
+
 std::unique_ptr<AST> Parser::parseExpression()
 {
     auto term0 = parseTerm();
     auto expression = ast<Expression>(std::move(term0));
+
+    while (!final())
+    {
+        advance();
+
+        if (here().is(TokenType::BranchAlternation))
+        {
+            if (final())
+            {
+                expression->addTerm(std::move(ast<Term>()));
+                break;
+            }
+            advance();
+
+            expression->addTerm(std::move(parseTerm()));
+        }
+        else break;
+    }
+
     return expression;
 }
 
@@ -290,10 +310,19 @@ std::unique_ptr<AST> Parser::parseExpression()
 
 std::unique_ptr<AST> Parser::parseTerm()
 {
+
+    bool hasAnchorStart = false;
+    if (here().is(TokenType::AnchorStart))
+    {
+        hasAnchorStart = true;
+        advance();
+    }
+
     auto factor0 = parseFactor();
 
-    auto term = ast<Term>(false, std::move(factor0));
+    auto term = ast<Term>(hasAnchorStart, std::move(factor0));
 
+    
 
     // 这时 token 还是该 Factor 所对应的最后一个 token
     // 若它也是整个正则式的最后一个 token，就结束
@@ -315,8 +344,25 @@ std::unique_ptr<AST> Parser::parseTerm()
 
         term->addFactor(std::move(factor));
 
-    } while (!final());
-    return term;
+    } while (!final()
+        && !lookahead().is(TokenType::AnchorEnd)
+        && !lookahead().is(TokenType::BranchAlternation));
+
+    if (final()) return term;
+
+    if (lookahead().is(TokenType::AnchorEnd))
+    {
+        term->setEndAnchor();
+        advance();
+        return term;
+    }
+    if (lookahead().is(TokenType::BranchAlternation))
+    {
+        return term;
+    }
+
+    error("Internal Error from Parser::parseTerm()");
+    return nullptr;
 }
 std::unique_ptr<AST> Parser::parseFactor()
 {
@@ -409,7 +455,6 @@ std::unique_ptr<AST> Parser::parseAtom()
         {
             advance();
         }
-        
 
         while (!here().is(TokenType::CharacterClassClose))
         {
@@ -432,11 +477,26 @@ std::unique_ptr<AST> Parser::parseAtom()
 
         return characterClass;
     }
-
+    else if (t.is(TokenType::GroupOpen))
+    {
+        advance();
+        return ast<Atom>(std::move(parseGroup()));
+    }
+    else if (t.is(TokenType::NamedCapturingGroupOpen))
+    {
+        advance();
+        return ast<Atom>(std::move(parseNamedCapturingGroup()));
+    }
+    else if (t.is(TokenType::NonCapturingGroupOpen))
+    {
+        advance();
+        return ast<Atom>(std::move(parseNonCapturingGroup()));
+    }
     return std::unique_ptr<AST>();
 }
 std::unique_ptr<AST> Parser::parseGroup()
 {
+
     return std::unique_ptr<AST>();
 }
 std::unique_ptr<AST> Parser::parseNamedCapturingGroup()
