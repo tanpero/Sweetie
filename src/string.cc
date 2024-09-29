@@ -358,7 +358,7 @@ String& operator+=(String& lhs, const String& rhs) {
     return lhs;
 }
 
-String fromCodepoint(int unicode) {
+Char fromCodepoint(int unicode) {
     std::string utf8;
     if (unicode < 0x80) {
         // 1-byte sequence

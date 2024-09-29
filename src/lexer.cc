@@ -644,7 +644,7 @@ bool Lexer::canGetOrdinaryEscapedSequence()
                 ((c2 >= 'a' && c2 <= 'f') ? c2 - 'a' + 10 :
                     ((c2 >= 'A' && c2 <= 'F') ? c2 - 'A' + 10 : 0)));
 
-        Token t = { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) } } };
+        Token t = { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint) }, { toHexString(codepoint) } } };
         tokens.emplace_back(t);
         position++;
         break;
@@ -690,7 +690,7 @@ Token Lexer::getUnicodeCodePoint()
     {
         codepoint = getHexInteger(true);
     }
-    return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint)}, { toHexString(codepoint) }} };
+    return { TokenType::UnicodeCodePoint, { { fromCodepoint(codepoint) }, { toHexString(codepoint) }} };
 }
 
 Token Lexer::getUnicodeProperty(bool accept)

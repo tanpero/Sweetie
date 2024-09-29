@@ -34,6 +34,7 @@ public:
     CharacterClass(bool isNegative);
     void addRange(const std::pair<Char, Char>& range);
     void addChar(const Char& ch);
+    void negative();
     virtual String toString() const;
 };
 
@@ -104,9 +105,9 @@ public:
 class LookaheadAssertion : public AST {
 protected:
     std::unique_ptr<AST> expression;
-    bool isNegative;
+    bool isPositive;
 public:
-    LookaheadAssertion(std::unique_ptr<AST> expr, bool negative);
+    LookaheadAssertion(std::unique_ptr<AST> expr, bool positive);
     virtual String toString() const;
 };
 
@@ -114,9 +115,9 @@ public:
 class LookbehindAssertion : public AST {
 protected:
     std::unique_ptr<AST> expression;
-    bool isNegative;
+    bool isPositive;
 public:
-    LookbehindAssertion(std::unique_ptr<AST> expr, bool negative);
+    LookbehindAssertion(std::unique_ptr<AST> expr, bool positive);
     virtual String toString() const;
 };
 
@@ -131,16 +132,6 @@ public:
     virtual String toString() const;
 };
 
-// 分支选择节点
-class Alternation : public AST {
-protected:
-    std::unique_ptr<AST> left;
-    std::unique_ptr<AST> right;
-public:
-    Alternation(std::unique_ptr<AST> l, std::unique_ptr<AST> r);
-    virtual String toString() const;
-};
-
 // Unicode属性节点
 class UnicodeProperty : public AST {
 protected:
@@ -151,18 +142,12 @@ public:
     virtual String toString() const;
 };
 
-// 特殊序列节点
-class SpecialSequence : public AST {
-protected:
-    enum class Type
-    {
-        r, n, f, v, t, s, S, w, W, d, D
-    };
-    Type type;
-public:
-    SpecialSequence(const String& seq);
-    virtual String toString() const;
+enum class SpecialSequenceType
+{
+    r, n, f, v, t, s, S, w, W, d, D, b, B
 };
+
+SpecialSequenceType translateSpecialSequence(const String& seq);
 
 class Atom : public AST {
 protected:

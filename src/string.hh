@@ -88,7 +88,7 @@ private:
 String operator+(const String& lhs, const String& rhs);
 String& operator+=(String& lhs, const String& rhs);
 
-String fromCodepoint(int unicode);
+Char fromCodepoint(int unicode);
 String toHexString(int number);
 int toInteger(String s);
 

@@ -12,6 +12,11 @@ void CharacterClass::addChar(const Char& ch) {
     chars.insert(ch);
 }
 
+void CharacterClass::negative()
+{
+    isNegative = !isNegative;
+}
+
 String CharacterClass::toString() const
 {
     String s1 = "Character Class:\n  <Single Characters:";
@@ -79,27 +84,27 @@ String NonCapturingGroup::toString() const
     return "Non-capturing group:\n" + expression->toString();
 }
 
-LookaheadAssertion::LookaheadAssertion(std::unique_ptr<AST> expr, bool negative)
+LookaheadAssertion::LookaheadAssertion(std::unique_ptr<AST> expr, bool positive)
 {
     expression = std::move(expr);
-    isNegative = negative;
+    isPositive = positive;
 }
 
 String LookaheadAssertion::toString() const
 {
-    return (isNegative ? "Negative l" : "L") + String{ "ookahead assertion:\n" }
+    return (isPositive ? "L" : "Negative l") + String{ "ookahead assertion:\n" }
         + expression->toString();
 }
 
-LookbehindAssertion::LookbehindAssertion(std::unique_ptr<AST> expr, bool negative)
+LookbehindAssertion::LookbehindAssertion(std::unique_ptr<AST> expr, bool positive)
 {
     expression = std::move(expr);
-    isNegative = negative;
+    isPositive = positive;
 }
 
 String LookbehindAssertion::toString() const
 {
-    return (isNegative ? "Negative l" : "L") + String{ "ookbehind assertion\n"}
+    return (isPositive ? "L" : "Negative l") + String{ "ookbehind assertion\n"}
         + expression->toString();
 }
 
@@ -121,18 +126,6 @@ String Backreference::toString() const
         (id ? "ID: " + String{ id } : String{ "name: " } + reference) + "\n";
 }
 
-Alternation::Alternation(std::unique_ptr<AST> l, std::unique_ptr<AST> r)
-{
-    left = std::move(l);
-    right = std::move(r);
-}
-
-String Alternation::toString() const
-{
-    return String{ "Alternation:\n" } + " - Left: " + left->toString()
-        + "\n - Right: " + right->toString() + "\n";
-}
-
 UnicodeProperty::UnicodeProperty(const String& name, const String& value)
 {
     propertyName = name;
@@ -145,29 +138,6 @@ String UnicodeProperty::toString() const
         (propertyValue.length() ? " Value: " + propertyValue : "") + ">\n";
 }
 
-SpecialSequence::SpecialSequence(const String& seq)
-{
-    // seq: "\d", get 'd'
-    switch (seq[1].toStdChar())
-    {
-    case 'r': type = Type::r; break;
-    case 'n': type = Type::n; break;
-    case 'f': type = Type::f; break;
-    case 'v': type = Type::v; break;
-    case 't': type = Type::t; break;
-    case 's': type = Type::s; break;
-    case 'S': type = Type::S; break;
-    case 'w': type = Type::w; break;
-    case 'W': type = Type::W; break;
-    case 'd': type = Type::d; break;
-    case 'D': type = Type::D; break;
-    }
-}
-
-String SpecialSequence::toString() const
-{
-    return "<Special Sequence>\n";
-}
 
 Quantifier::Quantifier() : type(Type::Once)
 {
@@ -192,7 +162,7 @@ Quantifier::Quantifier(Type type) : type(type) {
     }
 }
 
-String Quantifier::toString() const const
+String Quantifier::toString() const
 {
     String s;
     switch (type)
@@ -319,4 +289,25 @@ Atom::Atom(std::unique_ptr<AST> atom_) : atom(std::move(atom_))
 String Atom::toString() const
 {
     return "[Begin Atom]\n" + atom->toString() + "[End Atom]\n";
+}
+
+SpecialSequenceType translateSpecialSequence(const String& seq)
+{
+    // seq: "\d", get 'd'
+    switch (seq[1].toStdChar())
+    {
+    case 'r': return SpecialSequenceType::r;
+    case 'n': return SpecialSequenceType::n;
+    case 'f': return SpecialSequenceType::f;
+    case 'v': return SpecialSequenceType::v;
+    case 't': return SpecialSequenceType::t;
+    case 's': return SpecialSequenceType::s;
+    case 'S': return SpecialSequenceType::S;
+    case 'w': return SpecialSequenceType::w;
+    case 'W': return SpecialSequenceType::W;
+    case 'd': return SpecialSequenceType::d;
+    case 'D': return SpecialSequenceType::D;
+    case 'b': return SpecialSequenceType::b;
+    case 'B': return SpecialSequenceType::B;
+    }
 }

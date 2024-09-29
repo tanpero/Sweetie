@@ -36,256 +36,91 @@ void Parser::error(const String& message) const
     exit(-1);
 }
 
+std::unique_ptr<AST> Parser::convertSpecialSequenceToActualAST(SpecialSequenceType type)
+{
+
+    // The \s equivalents to
+    //     [\f\n\r\t\v\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]
+    auto spaceCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::S);
+    spaceCharacterClass->addChar("\f");
+    spaceCharacterClass->addChar("\n");
+    spaceCharacterClass->addChar("\r");
+    spaceCharacterClass->addChar("\t");
+    spaceCharacterClass->addChar("\v");
+    spaceCharacterClass->addChar(fromCodepoint(0x20));
+    spaceCharacterClass->addChar(fromCodepoint(0xa0));
+    spaceCharacterClass->addChar(fromCodepoint(0x1680));
+    spaceCharacterClass->addRange({ fromCodepoint(0x2000), fromCodepoint(0x200a) });
+    spaceCharacterClass->addChar(fromCodepoint(0x2028));
+    spaceCharacterClass->addChar(fromCodepoint(0x2029));
+    spaceCharacterClass->addChar(fromCodepoint(0x202f));
+    spaceCharacterClass->addChar(fromCodepoint(0x205f));
+    spaceCharacterClass->addChar(fromCodepoint(0x3000));
+    spaceCharacterClass->addChar(fromCodepoint(0xfeff));
+
+    // The \w equivalents to
+    //     [0-9A-Za-z_]
+    auto wordCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::W);
+    wordCharacterClass->addRange({ "0", "9" });
+    wordCharacterClass->addRange({ "A", "Z" });
+    wordCharacterClass->addRange({ "a", "z" });
+    wordCharacterClass->addChar("_");
+
+    // The \d equivalents to
+    //     [0-9]
+    auto digitCharacterClass = ast<CharacterClass>(type == SpecialSequenceType::D);
+    digitCharacterClass->addRange({ "0", "9" });
+
+    // The \b equivalents to
+    //     (?<=\w)(?=\W)|(?<=\W)(?=\w)
+    // The \B equivalents to
+    //     (?<=\w)(?=\w)|(?<=\W)(?=\W)
+    // Note:
+    //     At the appropriate time, a simpler and faster implementation method will be used
+    // TODO...
+
+    switch (type)
+    {
+    case SpecialSequenceType::r:
+        return ast<Atom>(std::move(ast<Literal>("\r")));
+    case SpecialSequenceType::n:
+        return ast<Atom>(std::move(ast<Literal>("\n")));
+    case SpecialSequenceType::f:
+        return ast<Atom>(std::move(ast<Literal>("\f")));
+    case SpecialSequenceType::v:
+        return ast<Atom>(std::move(ast<Literal>("\v")));
+    case SpecialSequenceType::t:
+        return ast<Atom>(std::move(ast<Literal>("\t")));
+    case SpecialSequenceType::s: case SpecialSequenceType::S:
+        return ast<Atom>(std::move(spaceCharacterClass));
+    case SpecialSequenceType::w: case SpecialSequenceType::W:
+        return ast<Atom>(std::move(wordCharacterClass));
+    case SpecialSequenceType::d: case SpecialSequenceType::D:
+        return ast<Atom>(std::move(digitCharacterClass));
+    case SpecialSequenceType::b: case SpecialSequenceType::B:
+        error("Internal Error: \\b and \\B is not implemented");
+        return nullptr;
+    default:
+        return nullptr;
+    }
+}
+
 std::unique_ptr<AST> Parser::parse()
 {
     return ast<Regex>(parseExpression());
 }
-/*
+
 std::unique_ptr<AST> Parser::parseExpression()
 {
-    auto term0 = parseTerm();
-    auto expression = ast<Expression>(std::move(term0));
-
-    while (!final() && !lookahead().is(TokenType::BranchAlternation))
-    {
-        advance();
-
-        auto term = parseTerm();
-        expression->addTerm(std::move(term));
-    }
-
-    return expression;
-}
-
-std::unique_ptr<AST> Parser::parseTerm()
-{
-    bool hasAnchorStart = false;
-    if (here().is(TokenType::AnchorStart))
-    {
-        hasAnchorStart = true;
-        advance();
-    }
-    auto factor0 = parseFactor();
-    auto term = ast<Term>(hasAnchorStart, std::move(factor0));
-
-    // [a-z](abc)def
-    // token = '('
-
-    while (!here().is(TokenType::GroupClose))
-    {
-
-        if (here().is(TokenType::AnchorEnd))
-        {
-            term->setEndAnchor();
-            return term;
-        }
-
-        auto factor = parseFactor();
-
-        term->addFactor(std::move(factor));
-
-        if (final())
-        {
-            break;
-        }
-
-        if (here().is(TokenType::GroupClose))
-        {
-            advance();
-        }
-
-    }
-
-    return term;
-}
-
-// 进入此函数前，token 为 Factor 的第一个 token
-// 退出此函数后，token 为 下一个 Factor 的第一个 token
-std::unique_ptr<AST> Parser::parseFactor()
-{
-
-    bool isAssertion =
-        here().is(TokenType::AssertionLookahead) ||
-        here().is(TokenType::AssertionNegativeLookahead) ||
-        here().is(TokenType::AssertionLookbehind) ||
-        here().is(TokenType::AssertionNegativeLookbehind);
-    if (isAssertion)
-    {
-        auto factor = ast<Factor>(std::move(parseAssertion()));
-        return factor;
-    }
-    auto atom = ast<Atom>(std::move(parseAtom()));
-    if (final())
-    {
-        auto unitQuantifier = ast<Quantifier>(Quantifier::Type::Once);
-        return ast<Factor>(std::move(atom), std::move(unitQuantifier));
-    }
-    if (here().is(TokenType::CharacterClassClose))
-    {
-        advance();
-    }
-    if (lookahead().is(TokenType::QuantifierBraces))
-    {
-        advance();
-        int min = toInteger(here().value.first);
-        int max = toInteger(here().value.second);
-        if (min > max)
-        {
-            error("numbers out of order in {} quantifier");
-        }
-        auto quantifier = ast<Quantifier>(min, max);
-        if (!final())
-        {
-            advance();
-        }
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierStar))
-    {
-        advance();
-        auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrMore);
-        if (!final())
-        {
-            advance();
-        }
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierPlus))
-    {
-        advance();
-        auto quantifier = ast<Quantifier>(Quantifier::Type::OneOrMore);
-        if (!final())
-        {
-            advance();
-        }
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierQuestion))
-    {
-        advance();
-        auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrOne);
-        if (!final())
-        {
-            advance();
-        }
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    
-    advance();
-
-    auto unitQuantifier = ast<Quantifier>(Quantifier::Type::Once);
-    return ast<Factor>(std::move(atom), std::move(unitQuantifier));
-}
-
-// 解析原子后 token 索引不会自动向前，需要在调用该解析器之后显式步进索引
-std::unique_ptr<AST> Parser::parseAtom()
-{
-    Token t = here();
-    if (t.is(TokenType::LiteralCharacter) || t.is(TokenType::UnicodeCodePoint))
-    {
-        return ast<Literal>(t.value.first[0]);
-    }
-    else if (t.is(TokenType::AnyCharacter))
-    {
-        return ast<AnyCharacter>();
-    }
-    else if (t.is(TokenType::CharacterClassOpen))
-    {
-        bool isNegativeClass = lookahead().is(TokenType::CharacterClassNegative);
-        if (isNegativeClass)
-        {
-            advance();
-            advance();
-        }
-        else
-        {
-            advance();
-        }
-        if (t.is(TokenType::CharacterClassClose))
-        {
-            error("Character classes without actual directionality");
-            return nullptr;
-        }
-        auto cc = ast<CharacterClass>(isNegativeClass);
-        while (current < tokens.size() && !here().is(TokenType::CharacterClassClose))
-        {
-            t = here();
-            if (t.is(TokenType::CharacterClassLiteral) || t.is(TokenType::UnicodeCodePoint))
-            {
-                cc->addChar(t.value.first[0]);
-            }
-            else
-            {
-                cc->addRange({ t.value.first[0], t.value.second[0] });
-            }
-            advance();
-
-
-        }
-        return cc;
-    }
-    else if (t.is(TokenType::GroupOpen))
-    {
-        advance();
-        auto expr = ast<Expression>(std::move(parseExpression()));
-        return expr;
-    }
-    
-    
-    return nullptr;
-}
-
-std::unique_ptr<AST> Parser::parseAssertion()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseLookaheadAssertion()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseNegativeLookaheadAssertion()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseLookbehindAssertion()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseNegativeLookbehindAssertion()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseWordBound()
-{
-    return std::unique_ptr<AST>();
-}
-
-std::unique_ptr<AST> Parser::parseGroup()
-{
-    // token = '('
-    advance();
-    if (lookahead().is(TokenType::GroupClose))
+    if (here().is(TokenType::GroupClose))
     {
         error("Capturing group without actual directionality");
         return nullptr;
     }
-    auto group = ast<CapturingGroup>(parseExpression());
-    return std::unique_ptr<AST>();
-}
-
-*/
-
-std::unique_ptr<AST> Parser::parseExpression()
-{
     auto term0 = parseTerm();
     auto expression = ast<Expression>(std::move(term0));
 
-    while (!final())
+    while (!final() && !lookahead().is(TokenType::GroupClose))
     {
         advance();
 
@@ -300,6 +135,10 @@ std::unique_ptr<AST> Parser::parseExpression()
 
             expression->addTerm(std::move(parseTerm()));
         }
+        else if (lookahead().is(TokenType::GroupClose)) {
+            advance();
+            break;
+        }
         else break;
     }
 
@@ -310,7 +149,6 @@ std::unique_ptr<AST> Parser::parseExpression()
 
 std::unique_ptr<AST> Parser::parseTerm()
 {
-
     bool hasAnchorStart = false;
     if (here().is(TokenType::AnchorStart))
     {
@@ -322,12 +160,10 @@ std::unique_ptr<AST> Parser::parseTerm()
 
     auto term = ast<Term>(hasAnchorStart, std::move(factor0));
 
-    
-
     // 这时 token 还是该 Factor 所对应的最后一个 token
     // 若它也是整个正则式的最后一个 token，就结束
 
-    if (final())
+    if (final() || lookahead().is(TokenType::GroupClose))
     {
         return term;
     }
@@ -368,10 +204,20 @@ std::unique_ptr<AST> Parser::parseFactor()
 {
     // 一个 Factor 要么是一个 Atom 及其量词，要么是一个断言
 
+    bool isAssertion =
+        here().is(TokenType::AssertionLookahead) ||
+        here().is(TokenType::AssertionNegativeLookahead) ||
+        here().is(TokenType::AssertionLookbehind) ||
+        here().is(TokenType::AssertionNegativeLookbehind);
+    if (isAssertion)
+    {
+        auto assertion = ast<Factor>(std::move(parseAssertion()));
+        return assertion;
+    }
+
     // 现在 token 是该 Atom 的第一个 token
 
     auto atom = parseAtom();
-
 
     // 现在 token 是该 Atom 的最后一个 token
         
@@ -432,10 +278,23 @@ std::unique_ptr<AST> Parser::parseAtom()
     if (t.is(TokenType::LiteralCharacter) || t.is(TokenType::UnicodeCodePoint))
     {
         auto l = ast<Literal>(t.value.first[0]);
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         return ast<Atom>(std::move(l));
+    }
+    else if (t.is(TokenType::SpecialSequence))
+    {
+        SpecialSequenceType type = translateSpecialSequence(t.value.first);
+        return convertSpecialSequenceToActualAST(type);
     }
     else if (t.is(TokenType::AnyCharacter))
     {
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         return ast<Atom>(std::move(ast<AnyCharacter>()));
     }
     else if (t.is(TokenType::CharacterClassOpen))
@@ -474,43 +333,95 @@ std::unique_ptr<AST> Parser::parseAtom()
             }
             advance();
         }
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
 
         return characterClass;
     }
     else if (t.is(TokenType::GroupOpen))
     {
-        advance();
         return ast<Atom>(std::move(parseGroup()));
     }
     else if (t.is(TokenType::NamedCapturingGroupOpen))
     {
-        advance();
         return ast<Atom>(std::move(parseNamedCapturingGroup()));
     }
     else if (t.is(TokenType::NonCapturingGroupOpen))
     {
-        advance();
         return ast<Atom>(std::move(parseNonCapturingGroup()));
     }
+    else if (t.is(TokenType::Backreference))
+    {
+        return ast<Atom>(std::move(ast<Backreference>(toInteger(t.value.first))));
+    }
+    else if (t.is(TokenType::NamedBackreference))
+    {
+        return ast<Atom>(std::move(ast<Backreference>(t.value.first)));
+    }
+    error("Internal Error from Parser::parseAtom()");
     return std::unique_ptr<AST>();
 }
 std::unique_ptr<AST> Parser::parseGroup()
 {
-
-    return std::unique_ptr<AST>();
+    if (lookahead().is(TokenType::GroupClose))
+    {
+        error("Capturing group without actual directionality");
+        return nullptr;
+    }
+    advance();
+    auto group = ast<CapturingGroup>(std::move(parseExpression()));
+    return group;
 }
 std::unique_ptr<AST> Parser::parseNamedCapturingGroup()
 {
-    return std::unique_ptr<AST>();
+    if (!lookahead().is(TokenType::NamedCapturingGroupName))
+    {
+        error("Named capturing group without actual directionality");
+        return nullptr;
+    }
+
+    advance();
+
+    if (lookahead().is(TokenType::GroupClose))
+    {
+        error("Named capturing group without actual directionality");
+        return nullptr;
+    }
+
+    String name = here().value.first;
+
+    advance();
+
+    auto group = ast<NamedCapturingGroup>(name, std::move(parseExpression()));
+    return group;
 }
 
 std::unique_ptr<AST> Parser::parseNonCapturingGroup()
 {
-    return std::unique_ptr<AST>();
+    if (!lookahead().is(TokenType::NamedCapturingGroupName))
+    {
+        error("Non-capturing group without actual directionality");
+        return nullptr;
+    }
+
+    advance();
+
+    if (lookahead().is(TokenType::GroupClose))
+    {
+        error("Non-capturing group without actual directionality");
+        return nullptr;
+    }
+
+    advance();
+    auto group = ast<NonCapturingGroup>(std::move(parseExpression()));
+    return group;
 }
 
 std::unique_ptr<AST> Parser::parseBackreference()
 {
+
     return std::unique_ptr<AST>();
 }
 
@@ -518,4 +429,10 @@ std::unique_ptr<AST> Parser::parseUnicodeProperty()
 {
     return std::unique_ptr<AST>();
 }
+
+std::unique_ptr<AST> Parser::parseAssertion()
+{
+    return std::unique_ptr<AST>();
+}
+
 

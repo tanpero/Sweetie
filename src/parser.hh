@@ -70,11 +70,8 @@ private:
     std::unique_ptr<AST> parseUnicodeProperty();
 
     std::unique_ptr<AST> parseAssertion();
-    std::unique_ptr<AST> parseLookaheadAssertion();
-    std::unique_ptr<AST> parseNegativeLookaheadAssertion();
-    std::unique_ptr<AST> parseLookbehindAssertion();
-    std::unique_ptr<AST> parseNegativeLookbehindAssertion();
-    std::unique_ptr<AST> parseWordBound();
+
+    std::unique_ptr<AST> convertSpecialSequenceToActualAST(SpecialSequenceType type);
 
 public:
     Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}

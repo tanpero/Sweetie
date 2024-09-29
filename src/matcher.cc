@@ -30,7 +30,7 @@ void remove(std::vector<std::pair<int, int>>& ranges, std::pair<int, int> to_rem
 
 bool canBeMatchedAsAnyCharacter(Char c) {
     return c != '\r' && c != '\n' &&
-        c != fromCodepoint(0x2028)[0] && c != fromCodepoint(0x2029)[0];
+        c != fromCodepoint(0x2028) && c != fromCodepoint(0x2029);
 }
 
 Matcher::Matcher() : type(Type::AnyCharacter) {
