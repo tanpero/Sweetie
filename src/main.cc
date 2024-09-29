@@ -108,7 +108,7 @@ int main() {
 
     auto capturingGroup1 = std::make_unique<CapturingGroup>(std::move(qualifier2));*/
 
-    String regex = R"((?<name>abc)|^(你好){3,5}\d)";
+    String regex = R"((?=name|abc)|^(你好){3,5}\d|[def])";
 
     Lexer lexer(regex);
     auto tokens = lexer.tokenize();

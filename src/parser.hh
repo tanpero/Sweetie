@@ -66,7 +66,6 @@ private:
     std::unique_ptr<AST> parseGroup();
     std::unique_ptr<AST> parseNamedCapturingGroup();
     std::unique_ptr<AST> parseNonCapturingGroup();
-    std::unique_ptr<AST> parseBackreference();
     std::unique_ptr<AST> parseUnicodeProperty();
 
     std::unique_ptr<AST> parseAssertion();

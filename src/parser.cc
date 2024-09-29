@@ -211,6 +211,16 @@ std::unique_ptr<AST> Parser::parseFactor()
         here().is(TokenType::AssertionNegativeLookbehind);
     if (isAssertion)
     {
+        Token next = lookahead();
+        switch (next.type)
+        {
+        case TokenType::QuantifierBraces:
+        case TokenType::QuantifierStar:
+        case TokenType::QuantifierPlus:
+        case TokenType::QuantifierQuestion:
+            error("Unexpected quantifier after an assertion");
+            return nullptr;
+        }
         auto assertion = ast<Factor>(std::move(parseAssertion()));
         return assertion;
     }
@@ -360,6 +370,13 @@ std::unique_ptr<AST> Parser::parseAtom()
     {
         return ast<Atom>(std::move(ast<Backreference>(t.value.first)));
     }
+    else if (  t.is(TokenType::AssertionLookahead)
+        || t.is(TokenType::AssertionNegativeLookahead)
+        || t.is(TokenType::AssertionLookbehind)
+        || t.is(TokenType::AssertionNegativeLookbehind))
+    {
+        return ast<Atom>(std::move(parseAssertion()));
+    }
     error("Internal Error from Parser::parseAtom()");
     return std::unique_ptr<AST>();
 }
@@ -419,12 +436,6 @@ std::unique_ptr<AST> Parser::parseNonCapturingGroup()
     return group;
 }
 
-std::unique_ptr<AST> Parser::parseBackreference()
-{
-
-    return std::unique_ptr<AST>();
-}
-
 std::unique_ptr<AST> Parser::parseUnicodeProperty()
 {
     return std::unique_ptr<AST>();
@@ -432,7 +443,41 @@ std::unique_ptr<AST> Parser::parseUnicodeProperty()
 
 std::unique_ptr<AST> Parser::parseAssertion()
 {
-    return std::unique_ptr<AST>();
+    switch (here().type)
+    {
+    case TokenType::AssertionLookahead:
+        if (lookahead().is(TokenType::GroupClose))
+        {
+            error("Lookahead assertion without actual directionality");
+            return nullptr;
+        }
+        advance();
+        return ast<LookaheadAssertion>(std::move(parseExpression()), true);
+    case TokenType::AssertionNegativeLookahead:
+        if (lookahead().is(TokenType::GroupClose))
+        {
+            error("Negative lookahead assertion without actual directionality");
+            return nullptr;
+        }
+        advance();
+        return ast<LookaheadAssertion>(std::move(parseExpression()), false);
+    case TokenType::AssertionLookbehind:
+        if (lookahead().is(TokenType::GroupClose))
+        {
+            error("Lookbehind assertion without actual directionality");
+            return nullptr;
+        }
+        advance();
+        return ast<LookbehindAssertion>(std::move(parseExpression()), true);
+    case TokenType::AssertionNegativeLookbehind:
+        if (lookahead().is(TokenType::GroupClose))
+        {
+            error("Negative lookbehind assertion without actual directionality");
+            return nullptr;
+        }
+        advance();
+        return ast<LookbehindAssertion>(std::move(parseExpression()), false);
+    }
 }
 
 
