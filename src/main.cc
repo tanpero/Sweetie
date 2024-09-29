@@ -58,7 +58,7 @@ int main() {
     
     
     // [a-zA-Z]*(\d+)|(\d{1,3})
-
+    /*
     // 创建一个字符类，匹配一个字母
     auto letterClass = std::make_unique<CharacterClass>(false);
     letterClass->addRange({ 'a', 'z' });
@@ -77,7 +77,7 @@ int main() {
 
                     left_ast(Atom)
                         
-                        left_ast(SpecialSequence)(R"(\d)")
+                        left_ast(Literal)(R"(d)")
                         right_ast
 
                     right_ast,
@@ -101,14 +101,23 @@ int main() {
     term1->addFactor(std::move(factor2));
 
     std::cout << term1->toString();
-
+    */
     /*auto qualifier1 = std::make_unique<Quantifier>(std::move(letterClass), Quantifier::Type::ZeroOrMore);
     auto d = std::make_unique<SpecialSequence>(R"(\d)");
     auto qualifier2 = std::make_unique<Quantifier>(std::move(d), Quantifier::Type::OneOrMore);
 
     auto capturingGroup1 = std::make_unique<CapturingGroup>(std::move(qualifier2));*/
 
+    String regex = "甲*乙{3,5}[a-z好-坏]丙.丁";
 
+    Lexer lexer(regex);
+    auto tokens = lexer.tokenize();
+    for (auto& i : tokens) {
+        std::cout << i.toString();
+    }
+    std::cout << "\n";
+    Parser parser(tokens);
+    std::cout << parser.parse()->toString();
 
     return 0;
 }

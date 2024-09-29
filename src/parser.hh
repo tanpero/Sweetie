@@ -44,6 +44,7 @@ private:
      *      → NonCapturingGroup
      *      → Backreference
      *      → UnicodeProperty
+     *      → UnicodeCodepoint
      * Quantifier → "?" | "*" | "+" | "{"[Number][","[Number]] "}"
      * Assertion → "(?=" Expression ")" (正向先行断言)
      *           → "(?!" Expression ")" (负向先行断言)
@@ -62,17 +63,11 @@ private:
     std::unique_ptr<AST> parseFactor();
     std::unique_ptr<AST> parseAtom();
 
-    std::unique_ptr<AST> parseLiteral();
-    std::unique_ptr<AST> parseCharacterClass();
-    std::unique_ptr<AST> parseAnyCharacter();
-
     std::unique_ptr<AST> parseGroup();
     std::unique_ptr<AST> parseNamedCapturingGroup();
-    std::unique_ptr<AST> parseNonapturingGroup();
+    std::unique_ptr<AST> parseNonCapturingGroup();
     std::unique_ptr<AST> parseBackreference();
     std::unique_ptr<AST> parseUnicodeProperty();
-
-    std::unique_ptr<AST> parseQuantifier();
 
     std::unique_ptr<AST> parseAssertion();
     std::unique_ptr<AST> parseLookaheadAssertion();

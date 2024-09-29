@@ -229,6 +229,7 @@ std::unique_ptr<T> ast(Args&&... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
+
 //const auto emptyTerm = ast<Term>(
 //    false,
 //    ast<Factor>(

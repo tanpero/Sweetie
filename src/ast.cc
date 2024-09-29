@@ -20,7 +20,7 @@ String CharacterClass::toString() const
     }
     s1 += ">\n  <Ranges:";
     for (auto& range : ranges) {
-        s1 += " [" + toHexString(range.first.toCodepoint())
+        s1 += " [" + toHexString(range.first.toCodepoint()) + " - "
             + toHexString(range.second.toCodepoint()) + "]";
     }
     s1 += ">\n";
@@ -29,12 +29,12 @@ String CharacterClass::toString() const
 
 String AnyCharacter::toString() const
 {
-    return "Any Character";
+    return "Any Character\n";
 }
 
 String Literal::toString() const
 {
-    return value;
+    return value + "\n";
 }
 
 String Anchor::toString() const
@@ -198,19 +198,19 @@ String Quantifier::toString() const const
     switch (type)
     {
     case Quantifier::Type::Once:
-        s = "No Qualifier";
+        s = "No Quantifier";
         break;
     case Quantifier::Type::OneOrMore:
-        s = "Qualifier: One or more";
+        s = "Quantifier: One or more";
         break;
     case Quantifier::Type::ZeroOrMore:
-        s = "Qualifier: Zero or more";
+        s = "Quantifier: Zero or more";
         break;
     case Quantifier::Type::ZeroOrOne:
-        s = "Qualifier: Zero or one";
+        s = "Quantifier: Zero or one";
         break;
     case Quantifier::Type::Designated:
-        s = "Qualifier: At least " + String(values.first) + ", at most "
+        s = "Quantifier: At least " + String(values.first) + ", at most "
             + (values.second != -1 ? String(values.second) : "infinity");
         break;
     }
@@ -222,7 +222,7 @@ Factor::Factor(std::unique_ptr<AST> assertion) : assertion(std::move(assertion))
 {
     type = Type::Assertion;
 }
-
+ 
 Factor::Factor(std::unique_ptr<AST> atom, std::unique_ptr<AST> quantifier)
     : atom_quantifier({ std::move(atom), std::move(quantifier) })
 {
@@ -231,9 +231,10 @@ Factor::Factor(std::unique_ptr<AST> atom, std::unique_ptr<AST> quantifier)
 
 String Factor::toString() const
 {
-    return "[Begin Factor]\n" + String(type == Type::Assertion ? "<Assertion>\n" + assertion->toString()
+    return "[Begin Factor]\n"
+        +String(type == Type::Assertion ? "<Assertion>\n" + assertion->toString()
         : "<Atom>\n" + atom_quantifier.first->toString()
-            + "\n<Quantifier>\n" + atom_quantifier.second->toString()) + "[End Factor]\n";
+            + "<Quantifier>\n" + atom_quantifier.second->toString()) + "[End Factor]\n";
 }
 
 Term::Term(bool _beginAnchor, std::unique_ptr<AST> factor0)
