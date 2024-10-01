@@ -127,40 +127,36 @@ std::unique_ptr<AST> Parser::parse()
     return ast<Regex>(parseExpression());
 }
 
+static int count = 0;
+
 std::unique_ptr<AST> Parser::parseExpression()
 {
+    count++;
     if (here().is(TokenType::GroupClose))
     {
         error("Capturing group without actual directionality");
         return nullptr;
     }
-    auto term0 = parseTerm();
-    auto expression = ast<Expression>(std::move(term0));
+    auto term = parseTerm();
+    auto expression = ast<Expression>(std::move(term));
 
-    while (!final() && !lookahead().is(TokenType::GroupClose))
-    {
-        advance();
-
-        if (here().is(TokenType::BranchAlternation))
-        {
-            if (final())
-            {
-                expression->addTerm(std::move(ast<Term>()));
-                break;
-            }
-            advance();
-
-            expression->addTerm(std::move(parseTerm()));
-        }
-        else if (lookahead().is(TokenType::GroupClose)) {
-            advance();
-            break;
-        }
-        else break;
-    }
+    parseExpressionPrime(expression);
 
     return expression;
 }
+
+
+void Parser::parseExpressionPrime(std::unique_ptr<Expression>& expression)
+{
+    if (!final() && here().is(TokenType::BranchAlternation))
+    {
+        advance();
+        auto term = parseTerm();
+        expression->addTerm(std::move(term));
+        parseExpressionPrime(expression);
+    }
+}
+
 
 // parseFactor 将不会在退出前自动移动索引！！！
 
@@ -190,7 +186,7 @@ std::unique_ptr<AST> Parser::parseTerm()
     do
     {
         advance();
-
+        
         auto factor = std::move(parseFactor());
 
         // token 是该 Factor 的最后一个 token
@@ -256,13 +252,22 @@ std::unique_ptr<AST> Parser::parseFactor()
         return factor;
     }
 
+
     // 下一个 token 会是量词吗？
     if (lookahead().is(TokenType::QuantifierBraces))
     {
         advance();
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
+        if (here().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         int min = toInteger(here().value.first);
         int max = toInteger(here().value.second);
-        if (min > max)
+        if (min > max && max != -1)
         {
             error("numbers out of order in {} quantifier");
         }
@@ -272,18 +277,30 @@ std::unique_ptr<AST> Parser::parseFactor()
     if (lookahead().is(TokenType::QuantifierStar))
     {
         advance();
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrMore);
         return ast<Factor>(std::move(atom), std::move(quantifier));
     }
     if (lookahead().is(TokenType::QuantifierPlus))
     {
         advance();
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         auto quantifier = ast<Quantifier>(Quantifier::Type::OneOrMore);
         return ast<Factor>(std::move(atom), std::move(quantifier));
     }
     if (lookahead().is(TokenType::QuantifierQuestion))
     {
         advance();
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
         auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrOne);
         return ast<Factor>(std::move(atom), std::move(quantifier));
     }
@@ -292,7 +309,6 @@ std::unique_ptr<AST> Parser::parseFactor()
 
     auto quantifier = ast<Quantifier>(Quantifier::Type::Once);
     auto factor = ast<Factor>(std::move(atom), std::move(quantifier));
-
     return factor;
 }
 std::unique_ptr<AST> Parser::parseAtom()
@@ -398,12 +414,13 @@ std::unique_ptr<AST> Parser::parseAtom()
             }
             else
             {
-                error("Internal Error: from Parser::parseAtom()");
+                error("Internal Error: from Parser::parseAtom() - 1");
             }
             advance();
         }
         if (!final() && lookahead().is(TokenType::GroupClose))
         {
+            advance();
             advance();
         }
 
@@ -436,7 +453,7 @@ std::unique_ptr<AST> Parser::parseAtom()
     {
         return ast<Atom>(std::move(parseAssertion()));
     }
-    error("Internal Error from Parser::parseAtom()");
+    error("Internal Error from Parser::parseAtom() - 2");
     return std::unique_ptr<AST>();
 }
 std::unique_ptr<AST> Parser::parseGroup()
@@ -476,14 +493,6 @@ std::unique_ptr<AST> Parser::parseNamedCapturingGroup()
 
 std::unique_ptr<AST> Parser::parseNonCapturingGroup()
 {
-    if (!lookahead().is(TokenType::NamedCapturingGroupName))
-    {
-        error("Non-capturing group without actual directionality");
-        return nullptr;
-    }
-
-    advance();
-
     if (lookahead().is(TokenType::GroupClose))
     {
         error("Non-capturing group without actual directionality");

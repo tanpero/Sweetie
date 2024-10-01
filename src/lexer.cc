@@ -124,6 +124,11 @@ std::vector<Token> Lexer::tokenize()
                 // [\xab-\xef]
                 // [a-z]
                 // [abc]
+                if (input[position] == '-') {
+                    Token t1{ TokenType::CharacterClassLiteral, { "-", {} } };
+                    tokens.emplace_back(t1);
+                    position++;
+                }
                 c = input[position];
                 while (c != ']' && position < input.length()) {
                     getCharacterClassContent();

@@ -57,7 +57,8 @@ private:
      * Backreference → "\" Number
      *               → "\" Name
      */
-
+    
+    void parseExpressionPrime(std::unique_ptr<Expression>& expression);
     std::unique_ptr<AST> parseExpression();
     std::unique_ptr<AST> parseTerm();
     std::unique_ptr<AST> parseFactor();

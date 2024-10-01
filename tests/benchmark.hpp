@@ -14,6 +14,7 @@
 */
 
 #include <iostream>
+#include <sstream>
 #include <cmath>
 #include <chrono>
 #include <vector>
@@ -87,7 +88,38 @@ double RunBenchmark(const BenchmarkFunction& func, int num_iterations,
     return average_time;
 }
 
+
+
+std::string formatDuration(double milliseconds) {
+    double runtime_ms = std::floor(milliseconds);
+    double runtime_us = (milliseconds - runtime_ms) * 1000;
+    double runtime_ns = (runtime_us - std::floor(runtime_us)) * 1000;
+
+    std::ostringstream result;
+    if (runtime_ms > 0) {
+        result << runtime_ms << "ms ";
+    }
+    if (runtime_us > 0) {
+        runtime_us = std::floor(runtime_us);
+        result << runtime_us << "μs ";
+    }
+    if (runtime_ns > 0) {
+        runtime_ns = std::floor(runtime_ns);
+        result << runtime_ns << "ns";
+    }
+
+    std::string output = result.str();
+    if (!output.empty() && output.back() == ' ') {
+        output.pop_back();
+    }
+
+    return output;
 }
+
+}
+
+
+
 
 #define BENCHMARK(func, count)\
 do \
@@ -96,9 +128,10 @@ do \
     double min_runtime, max_runtime, std_dev; \
     size_t memory_usage; \
     double average_runtime = __benchmark::RunBenchmark(func, num_iterations, min_runtime, max_runtime, std_dev, memory_usage); \
-    std::cout << "Average Runtime: " << average_runtime << " ms" << std::endl; \
-    std::cout << "Minimum Runtime: " << min_runtime << " ms" << std::endl; \
-    std::cout << "Maximum Runtime: " << max_runtime << " ms" << std::endl; \
+    std::cout << "\n\n-------------------------------\n"; \
+    std::cout << "Average Runtime: " << __benchmark::formatDuration(average_runtime) << "\n"; \
+    std::cout << "Minimum Runtime: " << __benchmark::formatDuration(min_runtime) << "\n"; \
+    std::cout << "Maximum Runtime: " << __benchmark::formatDuration(max_runtime) << "\n"; \
 } \
 while (0)
 
