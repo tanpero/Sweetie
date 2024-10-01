@@ -27,6 +27,11 @@ public:
     bool operator==(const Char& other) const;
     bool operator!=(const Char& other) const;
     bool operator<(const Char& other) const;
+    bool operator<=(const Char& other) const;
+    bool operator>(const Char& other) const;
+    bool operator>=(const Char& other) const;
+    Char operator-(int n) const;
+    Char operator+(int n) const;
     int toCodepoint() const;
     friend std::ostream& operator<<(std::ostream& os, const Char& ch);
 

@@ -67,26 +67,52 @@ bool Char::operator!=(const Char& other) const {
     return data != other.data;
 }
 
+
 bool Char::operator<(const Char& other) const
 {
     std::string s1 = data;
     std::string s2 = other.data;
     if (s1.length() < s2.length()) {
-        return true; // s1 小于 s2
+        return true;
     }
     else if (s1.length() > s2.length()) {
-        return false; // s1 大于 s2
+        return false;
     }
 
     for (size_t i = 0; i < s1.length(); ++i) {
         if (s1[i] < s2[i]) {
-            return true; // s1 小于 s2
+            return true;
         }
         else if (s1[i] > s2[i]) {
-            return false; // s1 大于 s2
+            return false;
         }
     }
     return false;
+}
+
+bool Char::operator<=(const Char& other) const
+{
+    return *this < other || *this == other;
+}
+
+bool Char::operator>(const Char& other) const
+{
+    return !(*this <= other);
+}
+
+bool Char::operator>=(const Char& other) const
+{
+    return !(*this < other);
+}
+
+Char Char::operator+(int n) const {
+    int codepoint = this->toCodepoint();
+    return fromCodepoint(codepoint + n);
+}
+
+Char Char::operator-(int n) const {
+    int codepoint = this->toCodepoint();
+    return fromCodepoint(codepoint - n);
 }
 
 int Char::toCodepoint() const {

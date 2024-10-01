@@ -4,32 +4,24 @@
 #include "ast.hh"
 
 
-// 解析器类
 class Parser {
 private:
-    std::vector<Token> tokens; // Token流
-    size_t current;            // 当前Token的位置
+    std::vector<Token> tokens;
+    size_t current;
 
-    // 确认当前 token 是否是最后一个
+    // Is current token the last one?
     bool final() const;
-
-    // 确认是否已经结束所有 token
-    bool end() const;
-
-    // 向前查找下一个Token
+    
+    // Look the next token without moving position
     Token lookahead() const;
 
-    // 向前移动到下一个Token
+    // Move to the next token
     void advance();
-
-    void advanceWhenNonFinal();
 
     Token here() const;
 
-    // 报告错误信息并退出
     void error(const String& message) const;
 
-    // 解析函数
 
     /*
      * Regex → Expression
@@ -76,7 +68,6 @@ private:
 public:
     Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
 
-    // 开始解析并生成AST
     std::unique_ptr<AST> parse();
 };
 

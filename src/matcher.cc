@@ -5,21 +5,16 @@ void remove(std::vector<std::pair<int, int>>& ranges, std::pair<int, int> to_rem
     std::vector<std::pair<int, int>> result;
     for (auto& range : ranges) {
         if (range.second < to_remove.first) {
-            // 当前范围在待删除范围之前
             result.push_back(range);
         }
         else if (range.first > to_remove.second) {
-            // 当前范围在待删除范围之后
             result.push_back(range);
         }
         else {
-            // 有重叠
             if (range.first < to_remove.first) {
-                // 前半部分保留
                 result.push_back({ range.first, to_remove.first - 1 });
             }
             if (range.second > to_remove.second) {
-                // 后半部分保留
                 result.push_back({ to_remove.second + 1, range.second });
             }
         }
@@ -132,13 +127,11 @@ Matcher& Matcher::operator-=(const Char& c) {
         codepointRanges.emplace_back(p2);
     }
     else {
-        // 删除 enumerations 中的字符
         auto it = std::remove(enumerations.begin(), enumerations.end(), c.toCodepoint());
         if (it != enumerations.end()) {
             enumerations.erase(it, enumerations.end());
         }
 
-        // 拆分 codepointRanges
         remove(codepointRanges, { c.toCodepoint(), c.toCodepoint() });
     }
     return *this;
@@ -146,7 +139,6 @@ Matcher& Matcher::operator-=(const Char& c) {
 
 Matcher& Matcher::operator-=(const std::pair<Char, Char>& _range) {
     if (type == Type::CharacterClass) {
-        // 删除 codepointRanges 中包含 _range 的范围
         auto range = std::make_pair(_range.first.toCodepoint(), _range.second.toCodepoint());
         
         remove(codepointRanges, range);

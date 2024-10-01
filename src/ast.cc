@@ -12,6 +12,51 @@ void CharacterClass::addChar(const Char& ch) {
     chars.insert(ch);
 }
 
+// 合并新的字符范围到现有的字符范围
+void CharacterClass::concatRanges(const std::vector<std::pair<Char, Char>>& _ranges) {
+    for (const auto& range : _ranges) {
+        // 检查新范围是否与现有范围重叠或相邻，并合并它们
+        auto it = ranges.begin();
+        while (it != ranges.end()) {
+            if (it->second < range.first - 1) {
+                // 新范围在现有范围之前
+                if ((it->second + 1) >= (range.first - 1)) {
+                    // 有重叠，合并它们
+                    it->second = std::max(it->second, range.second);
+                }
+                // 插入新范围
+                ranges.emplace(it, range);
+                break;
+            }
+            else if (range.second < it->first - 1) {
+                // 新范围在现有范围之后
+                if ((range.second + 1) >= (it->first - 1)) {
+                    // 有重叠，合并它们
+                    it->first = std::min(it->first, range.first);
+                }
+                ++it;
+            }
+            else {
+                // 有重叠，合并它们
+                it->first = std::min(it->first, range.first);
+                it->second = std::max(it->second, range.second);
+                // 移除重叠的部分
+                it = ranges.erase(it);
+            }
+        }
+        if (it == ranges.end()) {
+            // 如果没有插入，添加到末尾
+            ranges.push_back(range);
+        }
+    }
+}
+
+// 合并新的字符到现有的字符集合
+void CharacterClass::concatChars(const std::set<Char>& _chars) {
+    // 直接插入到字符集合中
+    chars.insert(_chars.begin(), _chars.end());
+}
+
 std::vector<std::pair<Char, Char>>&& CharacterClass::getRanges()
 {
     return std::move(ranges);

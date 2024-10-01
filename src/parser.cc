@@ -5,11 +5,6 @@ bool Parser::final() const
     return current == tokens.size() - 1;
 }
 
-bool Parser::end() const
-{
-    return current >= tokens.size();
-}
-
 Token Parser::lookahead() const
 {
     return tokens[current + 1];
@@ -18,11 +13,6 @@ Token Parser::lookahead() const
 void Parser::advance()
 {
     current++;
-}
-
-void Parser::advanceWhenNonFinal()
-{
-    if (!final()) advance();
 }
 
 Token Parser::here() const
@@ -42,21 +32,22 @@ std::unique_ptr<CharacterClass> asWhitespaceCharacterClass(bool isNegative)
     // The \s equivalents to
     //     [\f\n\r\t\v\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]
     auto spaceCharacterClass = ast<CharacterClass>(isNegative);
-    spaceCharacterClass->addChar("\f");
-    spaceCharacterClass->addChar("\n");
-    spaceCharacterClass->addChar("\r");
-    spaceCharacterClass->addChar("\t");
-    spaceCharacterClass->addChar("\v");
-    spaceCharacterClass->addChar(fromCodepoint(0x20));
-    spaceCharacterClass->addChar(fromCodepoint(0xa0));
-    spaceCharacterClass->addChar(fromCodepoint(0x1680));
-    spaceCharacterClass->addRange({ fromCodepoint(0x2000), fromCodepoint(0x200a) });
-    spaceCharacterClass->addChar(fromCodepoint(0x2028));
-    spaceCharacterClass->addChar(fromCodepoint(0x2029));
-    spaceCharacterClass->addChar(fromCodepoint(0x202f));
-    spaceCharacterClass->addChar(fromCodepoint(0x205f));
-    spaceCharacterClass->addChar(fromCodepoint(0x3000));
-    spaceCharacterClass->addChar(fromCodepoint(0xfeff));
+    spaceCharacterClass->concatChars({
+        { "\f" },
+        { "\n" },
+        { "\r" },
+        { "\t" },
+        { "\v" },
+        { fromCodepoint(0x20) },
+        { fromCodepoint(0xa0) },
+        { fromCodepoint(0x1680) },
+        { fromCodepoint(0x2028) },
+        { fromCodepoint(0x2029) },
+        { fromCodepoint(0x202f) },
+        { fromCodepoint(0x205f) },
+        { fromCodepoint(0x3000) },
+        { fromCodepoint(0xfeff) },
+    });
 
     return spaceCharacterClass;
 }
@@ -67,9 +58,11 @@ std::unique_ptr<CharacterClass> asWordCharacterClass(bool isNegative)
     // The \w equivalents to
     //     [0-9A-Za-z_]
     auto wordCharacterClass = ast<CharacterClass>(isNegative);
-    wordCharacterClass->addRange({ "0", "9" });
-    wordCharacterClass->addRange({ "A", "Z" });
-    wordCharacterClass->addRange({ "a", "z" });
+    wordCharacterClass->concatRanges({
+        { "0", "9" },
+        { "A", "Z" },
+        { "a", "z" }
+    });
     wordCharacterClass->addChar("_");
 
     return wordCharacterClass;
@@ -127,11 +120,9 @@ std::unique_ptr<AST> Parser::parse()
     return ast<Regex>(parseExpression());
 }
 
-static int count = 0;
 
 std::unique_ptr<AST> Parser::parseExpression()
 {
-    count++;
     if (here().is(TokenType::GroupClose))
     {
         error("Capturing group without actual directionality");
@@ -176,22 +167,42 @@ std::unique_ptr<AST> Parser::parseTerm()
     // 这时 token 还是该 Factor 所对应的最后一个 token
     // 若它也是整个正则式的最后一个 token，就结束
 
-    if (final() || lookahead().is(TokenType::GroupClose))
+    if (final() || lookahead().is(TokenType::GroupClose) || here().is(TokenType::GroupClose))
     {
         return term;
     }
 
-    // 接下来 token 应该是下一个 Factor 的第一个 token
+    advance();
 
     do
     {
-        advance();
+
+        if (here().is(TokenType::GroupClose))
+        {
+            return term;
+        }
         
+
+        if (!final() && (
+            here().is(TokenType::QuantifierBraces) ||
+            here().is(TokenType::QuantifierStar) ||
+            here().is(TokenType::QuantifierQuestion) ||
+            here().is(TokenType::QuantifierPlus)
+        ))
+        {
+            advance();
+        }
+
         auto factor = std::move(parseFactor());
 
         // token 是该 Factor 的最后一个 token
 
         term->addFactor(std::move(factor));
+
+        if (!final())
+        {
+            advance();
+        }
 
     } while (!final()
         && !lookahead().is(TokenType::AnchorEnd)
@@ -213,6 +224,7 @@ std::unique_ptr<AST> Parser::parseTerm()
     error("Internal Error from Parser::parseTerm()");
     return nullptr;
 }
+
 std::unique_ptr<AST> Parser::parseFactor()
 {
     // 一个 Factor 要么是一个 Atom 及其量词，要么是一个断言
@@ -254,17 +266,22 @@ std::unique_ptr<AST> Parser::parseFactor()
 
 
     // 下一个 token 会是量词吗？
-    if (lookahead().is(TokenType::QuantifierBraces))
+    Token l = lookahead();
+    if (l.is(TokenType::QuantifierBraces)
+        || l.is(TokenType::QuantifierStar)
+        || l.is(TokenType::QuantifierPlus)
+        || l.is(TokenType::QuantifierQuestion))
     {
         advance();
-        if (!final() && lookahead().is(TokenType::GroupClose))
-        {
-            advance();
-        }
-        if (here().is(TokenType::GroupClose))
-        {
-            advance();
-        }
+    }
+
+    Token h = here();
+
+    // 下一个 token 不是量词，那么不移动索引，索引依然指向当前 Factor 的最后一个 token
+
+    // 这一个 token 会是量词吗？
+    if (h.is(TokenType::QuantifierBraces))
+    {
         int min = toInteger(here().value.first);
         int max = toInteger(here().value.second);
         if (min > max && max != -1)
@@ -272,49 +289,54 @@ std::unique_ptr<AST> Parser::parseFactor()
             error("numbers out of order in {} quantifier");
         }
         auto quantifier = ast<Quantifier>(min, max);
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierStar))
-    {
-        advance();
         if (!final() && lookahead().is(TokenType::GroupClose))
         {
             advance();
         }
+        return ast<Factor>(std::move(atom), std::move(quantifier));
+    }
+    if (h.is(TokenType::QuantifierStar))
+    {
         auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrMore);
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierPlus))
-    {
-        advance();
         if (!final() && lookahead().is(TokenType::GroupClose))
         {
             advance();
         }
+        return ast<Factor>(std::move(atom), std::move(quantifier));
+    }
+    if (h.is(TokenType::QuantifierPlus))
+    {
         auto quantifier = ast<Quantifier>(Quantifier::Type::OneOrMore);
-        return ast<Factor>(std::move(atom), std::move(quantifier));
-    }
-    if (lookahead().is(TokenType::QuantifierQuestion))
-    {
-        advance();
         if (!final() && lookahead().is(TokenType::GroupClose))
         {
             advance();
         }
-        auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrOne);
         return ast<Factor>(std::move(atom), std::move(quantifier));
     }
-
-    // 下一个 token 不是量词，那么不移动索引，索引依然指向当前 Factor 的最后一个 token
+    if (h.is(TokenType::QuantifierQuestion))
+    {
+        auto quantifier = ast<Quantifier>(Quantifier::Type::ZeroOrOne);
+        if (!final() && lookahead().is(TokenType::GroupClose))
+        {
+            advance();
+        }
+        return ast<Factor>(std::move(atom), std::move(quantifier));
+    }
 
     auto quantifier = ast<Quantifier>(Quantifier::Type::Once);
     auto factor = ast<Factor>(std::move(atom), std::move(quantifier));
     return factor;
 }
+
 std::unique_ptr<AST> Parser::parseAtom()
 {
     // 一个 Atom 可能是一个单字符、字符类、组
     // 当前 token 为 Atom 的第一个 token
+
+    if (here().is(TokenType::BranchAlternation))
+    {
+        advance();
+    }
 
     Token t = here();
 
@@ -456,6 +478,7 @@ std::unique_ptr<AST> Parser::parseAtom()
     error("Internal Error from Parser::parseAtom() - 2");
     return std::unique_ptr<AST>();
 }
+
 std::unique_ptr<AST> Parser::parseGroup()
 {
     if (lookahead().is(TokenType::GroupClose))
@@ -467,6 +490,7 @@ std::unique_ptr<AST> Parser::parseGroup()
     auto group = ast<CapturingGroup>(std::move(parseExpression()));
     return group;
 }
+
 std::unique_ptr<AST> Parser::parseNamedCapturingGroup()
 {
     if (!lookahead().is(TokenType::NamedCapturingGroupName))

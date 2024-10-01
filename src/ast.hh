@@ -34,6 +34,8 @@ public:
     CharacterClass(bool isNegative);
     void addRange(const std::pair<Char, Char>& range);
     void addChar(const Char& ch);
+    void concatRanges(const std::vector<std::pair<Char, Char>>& _ranges);
+    void concatChars(const std::set<Char>& chars);
     std::vector<std::pair<Char, Char>>&& getRanges();
     std::set<Char>&& getChars();
     void negative();
