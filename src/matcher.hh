@@ -22,6 +22,7 @@ public:
     Matcher(const Char& c);
     Matcher(const Char& start, const Char& end);
     Matcher(const Matcher& other);
+    void setNagative();
     Matcher& operator+=(const Char& c);
     Matcher& operator+=(const std::pair<Char, Char>& range);
     Matcher operator+(const Char& c);
@@ -31,6 +32,7 @@ public:
     Matcher& operator-=(const Char& c);
     Matcher& operator-=(const std::pair<Char, Char>& _range);
     bool match(Char ch) const;
+    bool isNegative;
 
 private:
     Type type;

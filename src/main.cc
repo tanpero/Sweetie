@@ -1,17 +1,16 @@
 #include "parser.hh"
 #include "matcher.hh"
 #include "../tests/benchmark.hpp"
+#include <regex>
 
 std::unique_ptr<AST> a;
 
 void test(String regex) {    
     std::cout << "\n----------------\n - Regex: " << regex << "\n";
     BENCHMARK([&]() {
-        Lexer lexer(regex);
-        auto tokens = lexer.tokenize();
-        Parser parser(tokens);
-        parser.parse();
-    }, 10000);
+        std::regex r(regex.toUTF8(), std::regex::ECMAScript);
+        r;
+    }, 10000); 
 }
 
 int main() {
@@ -19,7 +18,7 @@ int main() {
     test(R"(^hello\w*)");
 
     // Test Case 2: 匹配包含至少一个空格的字符串
-    test(R"((?<=\s).+?(?=\s))");
+    //test(R"((?<=\s).+(?=\s))");
 
     // Test Case 3: 匹配电子邮件地址
     test(R"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})");

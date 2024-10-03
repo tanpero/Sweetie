@@ -28,18 +28,24 @@ bool canBeMatchedAsAnyCharacter(Char c) {
         c != fromCodepoint(0x2028) && c != fromCodepoint(0x2029);
 }
 
-Matcher::Matcher() : type(Type::AnyCharacter) {
+Matcher::Matcher() : type(Type::AnyCharacter), isNegative(false) {
 }
 
-Matcher::Matcher(const Char& c) : literal(c), type(Type::Literal) {}
+Matcher::Matcher(const Char& c) : literal(c), type(Type::Literal), isNegative(false) {}
 
-Matcher::Matcher(const Char& start, const Char& end) : type(Type::CharacterClass) {
+Matcher::Matcher(const Char& start, const Char& end) :
+    type(Type::CharacterClass), isNegative(false) {
     codepointRanges.emplace_back(start.toCodepoint(), end.toCodepoint());
 }
 
 Matcher::Matcher(const Matcher& other)
     : type(other.type), literal(other.literal), enumerations(other.enumerations),
-        codepointRanges(other.codepointRanges) {
+        codepointRanges(other.codepointRanges), isNegative(other.isNegative) {
+}
+
+void Matcher::setNagative()
+{
+    isNegative = !isNegative;
 }
 
 Matcher& Matcher::operator+=(const Char& c) {
